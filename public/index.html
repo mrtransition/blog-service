@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>轻舟博客</title>
+    <!-- Marked.js -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Highlight.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/python.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/css.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/json.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/xml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/markdown.min.js"></script>
+    <style>
+        :root {
+            --bg: #fafaf8;
+            --sidebar-bg: #f5f3ef;
+            --card-bg: #ffffff;
+            --text: #2c2c2c;
+            --text-secondary: #5e5e5e;
+            --text-muted: #8c8c8c;
+            --border: #e2ddd6;
+            --accent: #6b8e6b;
+            --accent-soft: #e9f0e6;
+            --hover-bg: #f0ece5;
+            --active-bg: #e2efda;
+            --code-bg: #f4f1ec;
+            --shadow-sm: 0 1px 4px rgba(0,0,0,0.04);
+            --shadow-md: 0 8px 24px rgba(0,0,0,0.06);
+            --radius: 14px;
+            --radius-sm: 8px;
+            --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            --sidebar-width: 280px;
+            --header-height: 60px;
+            --toc-width: 220px;
+            --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans', sans-serif;
+            --font-serif: 'Georgia', 'Times New Roman', 'Source Han Serif SC', 'Noto Serif SC', serif;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.6;
+        }
+
+        /* ===== 侧边栏 ===== */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: transform var(--transition);
+        }
+        .sidebar-header {
+            padding: 24px 22px 16px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, #7a9e7a, #5c7c5c);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 8px rgba(107,142,107,0.25);
+        }
+        .sidebar-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: -0.3px;
+        }
+        .sidebar-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .search-wrap {
+            padding: 14px 18px;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .search-input {
+            width: 100%;
+            padding: 10px 14px 10px 38px;
+            border: 1.5px solid var(--border);
+            border-radius: 24px;
+            font-size: 0.875rem;
+            background: var(--card-bg);
+            color: var(--text);
+            outline: none;
+            transition: all var(--transition);
+            font-family: var(--font-sans);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(107,142,107,0.1);
+            background: #fff;
+        }
+        .search-input::placeholder { color: #b8b0a4; }
+        .search-icon {
+            position: absolute;
+            left: 28px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #b8b0a4;
+            transition: color var(--transition);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+        }
+        .search-input:focus ~ .search-icon { color: var(--accent); }
+
+        .tree-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 6px 10px 20px;
+            scroll-behavior: smooth;
+        }
+        .tree-container::-webkit-scrollbar { width: 4px; }
+        .tree-container::-webkit-scrollbar-track { background: transparent; }
+        .tree-container::-webkit-scrollbar-thumb { background: #d9d2c5; border-radius: 10px; }
+
+        .tree-node { user-select: none; }
+        .tree-node .node-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition);
+            font-size: 0.875rem;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            position: relative;
+            border-left: 2px solid transparent;
+        }
+        .tree-node .node-row:hover {
+            background: var(--hover-bg);
+            border-left-color: #c7d4c2;
+        }
+        .tree-node .node-row.active {
+            background: var(--active-bg);
+            color: #3a543a;
+            font-weight: 600;
+            border-left-color: var(--accent);
+            box-shadow: inset 3px 0 0 var(--accent);
+        }
+        .tree-node .node-row .arrow {
+            width: 18px; height: 18px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+            transform: rotate(-90deg);
+        }
+        .tree-node.expanded > .node-row .arrow { transform: rotate(0deg); }
+        .tree-node .node-row .node-icon {
+            flex-shrink: 0;
+            width: 20px; text-align: center;
+            font-size: 0.9rem;
+        }
+        .tree-node .node-row .node-name {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .tree-node .children {
+            padding-left: 20px;
+            overflow: hidden;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 1px dashed #e0d8cc;
+            margin-left: 14px;
+        }
+        .tree-node.collapsed > .children { max-height: 0 !important; border-left-color: transparent; }
+
+        .empty-tree {
+            text-align: center; padding: 40px 20px;
+            color: var(--text-muted); font-size: 0.85rem; line-height: 1.7;
+        }
+        .empty-tree svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.6; }
+
+        /* ===== 主内容区 ===== */
+        .main {
+            flex: 1; display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden; min-width: 0;
+        }
+        .top-bar {
+            height: var(--header-height); min-height: var(--header-height);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center;
+            padding: 0 28px; gap: 14px;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 1px 6px rgba(0,0,0,0.03);
+            z-index: 50; flex-shrink: 0;
+        }
+        .menu-toggle {
+            display: none; width: 38px; height: 38px;
+            border-radius: var(--radius-sm); border: 1.5px solid var(--border);
+            background: #fff; cursor: pointer;
+            align-items: center; justify-content: center;
+            flex-shrink: 0; color: var(--text-secondary);
+            transition: all var(--transition);
+        }
+        .menu-toggle:hover { background: var(--hover-bg); border-color: var(--accent); }
+        .breadcrumb {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 0.82rem; color: var(--text-muted);
+            flex-wrap: wrap; overflow: hidden;
+        }
+        .breadcrumb span { white-space: nowrap; }
+        .breadcrumb span.sep { color: #ccc; margin: 0 3px; }
+        .breadcrumb span.current { color: var(--text); font-weight: 600; }
+        .breadcrumb span.clickable { cursor: pointer; color: var(--accent); }
+        .breadcrumb span.clickable:hover { text-decoration: underline; }
+
+        .content-area {
+            flex: 1; overflow-y: auto; overflow-x: hidden;
+            padding: 32px 40px; scroll-behavior: smooth;
+        }
+        .content-area::-webkit-scrollbar { width: 6px; }
+        .content-area::-webkit-scrollbar-track { background: transparent; }
+        .content-area::-webkit-scrollbar-thumb { background: #d9d2c5; border-radius: 10px; }
+
+        /* 文章布局：左侧正文 + 右侧悬浮目录 */
+        .article-layout {
+            display: flex;
+            justify-content: center;
+            gap: 28px;
+            max-width: 1200px;
+            margin: 0 auto;
+            align-items: flex-start;
+        }
+        .article-main {
+            flex: 1;
+            min-width: 0;
+        }
+        .article-toc {
+            width: var(--toc-width);
+            flex-shrink: 0;
+            position: sticky;
+            top: 24px;
+            align-self: flex-start;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            padding: 20px 16px;
+            background: transparent;
+            border-left: 1px solid var(--border);
+            font-size: 0.85rem;
+            transition: all var(--transition);
+            display: none; /* 默认隐藏 */
+        }
+        .article-toc.has-content {
+            display: block;
+        }
+        .article-toc::-webkit-scrollbar { width: 3px; }
+        .article-toc::-webkit-scrollbar-thumb { background: #d9d2c5; border-radius: 10px; }
+
+        .toc-title {
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            letter-spacing: 0.3px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .toc-list li {
+            margin-bottom: 2px;
+        }
+        .toc-list a {
+            display: block;
+            padding: 4px 0 4px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all var(--transition);
+            border-left: 2px solid transparent;
+            font-size: 0.82rem;
+            line-height: 1.6;
+        }
+        .toc-list a:hover {
+            background: var(--hover-bg);
+            color: var(--accent);
+            border-left-color: var(--accent);
+        }
+        .toc-list a.toc-h1 { padding-left: 4px; font-weight: 600; font-size: 0.88rem; }
+        .toc-list a.toc-h2 { padding-left: 16px; }
+        .toc-list a.toc-h3 { padding-left: 28px; font-size: 0.8rem; }
+        .toc-list a.toc-h4,
+        .toc-list a.toc-h5,
+        .toc-list a.toc-h6 { padding-left: 36px; font-size: 0.78rem; color: var(--text-muted); }
+
+        /* 文章卡片 */
+        .article-card {
+            max-width: 860px;
+            margin: 0;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 48px 52px;
+            border: 1px solid var(--border);
+            transition: box-shadow var(--transition);
+        }
+        .article-card:hover { box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+
+        .welcome-card {
+            max-width: 560px; margin: 80px auto 0;
+            text-align: center; padding: 60px 40px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+        }
+        .welcome-card svg { width: 80px; height: 80px; margin-bottom: 20px; opacity: 0.85; }
+        .welcome-card h2 {
+            font-size: 1.6rem; font-weight: 600;
+            margin-bottom: 10px; color: var(--text);
+            font-family: var(--font-serif);
+        }
+        .welcome-card p { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.8; }
+        .welcome-card code {
+            background: var(--code-bg); padding: 2px 10px;
+            border-radius: 4px; font-size: 0.85rem;
+            font-family: var(--font-mono); color: #5a705a;
+        }
+
+        /* Markdown 样式 */
+        .markdown-body {
+            line-height: 1.9; color: var(--text);
+            word-wrap: break-word; font-size: 1rem;
+        }
+        .markdown-body h1, .markdown-body h2, .markdown-body h3,
+        .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+            margin-top: 1.8em; margin-bottom: 0.7em;
+            font-weight: 600; line-height: 1.4;
+            color: var(--text); letter-spacing: -0.2px;
+            font-family: var(--font-serif);
+            scroll-margin-top: 20px;
+        }
+        .markdown-body h1 { font-size: 1.9rem; border-bottom: 2px solid var(--border); padding-bottom: 12px; margin-top: 0; }
+        .markdown-body h2 { font-size: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        .markdown-body h3 { font-size: 1.25rem; }
+        .markdown-body p { margin-bottom: 1.2em; }
+        .markdown-body a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(107,142,107,0.3); transition: border-color var(--transition); }
+        .markdown-body a:hover { border-bottom-color: var(--accent); }
+        .markdown-body ul, .markdown-body ol { padding-left: 1.8em; margin-bottom: 1.2em; }
+        .markdown-body li { margin-bottom: 0.4em; }
+        .markdown-body blockquote {
+            border-left: 4px solid var(--accent);
+            padding: 14px 20px; margin: 1.5em 0;
+            background: var(--accent-soft);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            color: var(--text-secondary); font-style: italic;
+        }
+        .markdown-body code {
+            font-family: var(--font-mono);
+            background: var(--code-bg); padding: 3px 8px;
+            border-radius: 5px; font-size: 0.9em; color: #5a705a;
+        }
+        .markdown-body pre {
+            background: #f8f5f0; border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 20px 22px;
+            overflow-x: auto; margin: 1.6em 0; line-height: 1.7;
+            font-size: 0.9rem; position: relative;
+        }
+        .markdown-body pre::before {
+            content: "● ● ●";
+            color: #c7b9a2; font-size: 0.7rem;
+            position: absolute; top: 10px; left: 14px; letter-spacing: 2px;
+        }
+        .markdown-body pre code {
+            background: none; padding: 0; color: var(--text);
+            font-size: inherit; display: block; margin-top: 8px;
+        }
+        .markdown-body table { border-collapse: collapse; width: 100%; margin: 1.4em 0; font-size: 0.92rem; }
+        .markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: 12px 16px; text-align: left; }
+        .markdown-body th { background: #faf8f5; font-weight: 600; }
+        .markdown-body img { max-width: 100%; border-radius: var(--radius-sm); margin: 1.2em 0; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+        .markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 2.5em 0; }
+        .markdown-body input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent); }
+
+        .html-content { line-height: 1.9; }
+
+        /* 移动端遮罩 */
+        .sidebar-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.25); backdrop-filter: blur(4px);
+            z-index: 99; transition: opacity var(--transition);
+        }
+        .sidebar-overlay.show { display: block; }
+
+        /* 响应式 */
+        @media (max-width: 1024px) {
+            .article-layout {
+                gap: 16px;
+            }
+            .article-toc {
+                width: 180px;
+            }
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed; left: 0; top: 0;
+                width: 78vw; max-width: 320px;
+                transform: translateX(-100%);
+                box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .menu-toggle { display: flex; }
+            .content-area { padding: 20px 16px; }
+            .article-layout {
+                flex-direction: column;
+                gap: 20px;
+            }
+            .article-toc {
+                position: static;
+                width: 100%;
+                max-height: none;
+                border-left: none;
+                border-bottom: 1px solid var(--border);
+                padding: 12px 0;
+                margin-bottom: 20px;
+                display: none;
+            }
+            .article-card { padding: 28px 20px; border-radius: var(--radius-sm); }
+            .welcome-card { padding: 40px 24px; margin-top: 40px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-icon">轻</div>
+            <div>
+                <div class="sidebar-title">轻舟博客</div>
+                <div class="sidebar-meta" id="sidebarMeta">加载中…</div>
+            </div>
+        </div>
+        <div class="search-wrap">
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索文章…" autocomplete="off">
+            <span class="search-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+        </div>
+        <div class="tree-container" id="treeContainer">
+            <div class="empty-tree">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                正在加载目录…
+            </div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <div class="top-bar">
+            <button class="menu-toggle" id="menuToggle" title="目录">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <nav class="breadcrumb" id="breadcrumb">
+                <span>🏠</span><span class="sep">›</span><span class="current">首页</span>
+            </nav>
+        </div>
+        <div class="content-area" id="contentArea">
+            <!-- 动态内容 -->
+        </div>
+    </main>
+
+    <script>
+        (function() {
+            const API_TREE = '/api/tree';
+            const API_FILE = '/api/file?path=';
+            const API_CONFIG = '/api/config';  // 新增
+            const BLOG_FILES_PREFIX = '/blog-files/';
+
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const menuToggle = document.getElementById('menuToggle');
+            const treeContainer = document.getElementById('treeContainer');
+            const contentArea = document.getElementById('contentArea');
+            const breadcrumb = document.getElementById('breadcrumb');
+            const searchInput = document.getElementById('searchInput');
+            const sidebarMeta = document.getElementById('sidebarMeta');
+            const sidebarTitle = document.querySelector('.sidebar-title');  // 新增引用
+            const welcomeTitle = document.querySelector('.welcome-card h2'); // 欢迎页标题（后续动态设置）
+
+            let treeData = null;
+            let currentFilePath = null;
+            let articleCount = 0;
+
+            // ========= 获取博客配置 =========
+            async function loadBlogConfig() {
+                try {
+                    const res = await fetch(API_CONFIG);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const blogName = data.blogName || '轻舟博客';
+                        // 更新侧边栏标题
+                        if (sidebarTitle) sidebarTitle.textContent = blogName;
+                        // 更新页面标题
+                        document.title = blogName;
+                        // 更新欢迎页标题（欢迎页稍后渲染，但可以先保存）
+                        window._blogName = blogName;
+                        // 也可以立即更新，如果欢迎页已存在
+                        const welcomeH2 = document.querySelector('.welcome-card h2');
+                        if (welcomeH2) welcomeH2.textContent = blogName;
+                    }
+                } catch (e) {
+                    console.warn('无法获取博客配置，使用默认名称');
+                    window._blogName = '轻舟博客';
+                    document.title = '轻舟博客';
+                }
+            }
+
+            function openSidebar() {
+                sidebar.classList.add('open');
+                sidebarOverlay.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+            function closeSidebar() {
+                sidebar.classList.remove('open');
+                sidebarOverlay.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+            menuToggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
+            sidebarOverlay.addEventListener('click', closeSidebar);
+
+            function handleMobileArticleClick() {
+                if (window.innerWidth <= 768) closeSidebar();
+            }
+
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            // 生成唯一的ID
+            function generateId(text, existingIds) {
+                let id = text.toLowerCase()
+                    .replace(/<[^>]*>/g, '')
+                    .replace(/[^\w\u4e00-\u9fff]+/g, '-')
+                    .replace(/^-|-$/g, '')
+                    || 'heading';
+                let uniqueId = id;
+                let counter = 1;
+                while (existingIds.has(uniqueId)) {
+                    uniqueId = id + '-' + counter++;
+                }
+                existingIds.add(uniqueId);
+                return uniqueId;
+            }
+
+            // 通用目录生成函数
+            function generateTOCFromHeadings(headings, tocContainer, doc) {
+                if (!headings || headings.length === 0) {
+                    tocContainer.classList.remove('has-content');
+                    return;
+                }
+                const existingIds = new Set();
+                headings.forEach(heading => {
+                    let id = heading.getAttribute('id');
+                    if (!id) {
+                        id = generateId(heading.textContent, existingIds);
+                        heading.setAttribute('id', id);
+                    } else {
+                        existingIds.add(id);
+                    }
+                });
+                // 构建HTML
+                let html = '<div class="toc-title">文章目录</div><ul class="toc-list">';
+                headings.forEach(heading => {
+                    const level = parseInt(heading.tagName.charAt(1));
+                    const id = heading.getAttribute('id');
+                    html += `<li><a href="#${id}" class="toc-h${level}">${escapeHtml(heading.textContent)}</a></li>`;
+                });
+                html += '</ul>';
+                tocContainer.innerHTML = html;
+                tocContainer.classList.add('has-content');
+                // 绑定点击事件
+                tocContainer.querySelectorAll('a').forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const targetId = this.getAttribute('href').substring(1);
+                        const target = doc.getElementById(targetId);
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    });
+                });
+            }
+
+            function countArticles(nodes) {
+                let count = 0;
+                for (const node of nodes) {
+                    if (node.type === 'file') count++;
+                    if (node.children) count += countArticles(node.children);
+                }
+                return count;
+            }
+
+            function updateBreadcrumb(parts) {
+                let html = '<span>🏠</span><span class="sep">›</span>';
+                if (!parts || parts.length === 0) {
+                    html += '<span class="current">首页</span>';
+                } else {
+                    html += '<span class="clickable" data-action="home">首页</span>';
+                    for (let i = 0; i < parts.length; i++) {
+                        html += '<span class="sep">›</span>';
+                        if (i === parts.length - 1) {
+                            html += `<span class="current">${escapeHtml(parts[i])}</span>`;
+                        } else {
+                            html += `<span class="clickable" data-action="nav" data-index="${i}">${escapeHtml(parts[i])}</span>`;
+                        }
+                    }
+                }
+                breadcrumb.innerHTML = html;
+                breadcrumb.querySelectorAll('.clickable').forEach(el => {
+                    el.addEventListener('click', () => {
+                        if (el.dataset.action === 'home') {
+                            loadWelcome();
+                            currentFilePath = null;
+                            highlightActiveNode(null);
+                            updateBreadcrumb([]);
+                            updateUrlHash('');
+                        }
+                    });
+                });
+            }
+
+            function updateUrlHash(filePath) {
+                window.location.hash = filePath ? '#/' + encodeURIComponent(filePath) : '';
+            }
+            function getFilePathFromHash() {
+                const hash = window.location.hash;
+                if (hash.startsWith('#/')) {
+                    try { return decodeURIComponent(hash.slice(2)); } catch(e) { return null; }
+                }
+                return null;
+            }
+
+            async function loadArticle(filePath, dirPath) {
+                try {
+                    contentArea.innerHTML = '<div style="text-align:center;padding:80px;color:var(--text-muted);">⏳ 正在渲染…</div>';
+                    const res = await fetch(API_FILE + encodeURIComponent(filePath));
+                    if (!res.ok) throw new Error(`文件加载失败 (${res.status})`);
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+
+                    currentFilePath = filePath;
+                    const isHtml = data.fileType === 'html';
+                    const resolvedDirPath = data.dirPath || dirPath || '';
+
+                    if (isHtml) {
+                        const fileUrl = BLOG_FILES_PREFIX + filePath;
+                        contentArea.innerHTML = `
+                            <div class="article-layout">
+                                <div class="article-main">
+                                    <div class="article-card" style="padding:0; overflow:hidden; border-radius:var(--radius);">
+                                        <iframe src="${fileUrl}" id="htmlIframe"
+                                                style="width:100%; min-height:600px; border:none; border-radius:var(--radius);"
+                                                sandbox="allow-scripts allow-same-origin"></iframe>
+                                    </div>
+                                </div>
+                                <aside class="article-toc" id="articleTOC"></aside>
+                            </div>`;
+                        const iframe = document.getElementById('htmlIframe');
+                        iframe.addEventListener('load', function() {
+                            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                            const headings = iframeDoc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                            const tocContainer = document.getElementById('articleTOC');
+                            if (tocContainer) generateTOCFromHeadings(headings, tocContainer, iframeDoc);
+                            // 调整高度
+                            this.style.height = iframeDoc.body.scrollHeight + 'px';
+                        });
+                    } else {
+                        let mdContent = data.content;
+                        if (resolvedDirPath) {
+                            mdContent = mdContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, p) => {
+                                if (/^(https?:|data:|#|\/)/i.test(p.trim())) return match;
+                                const resolved = BLOG_FILES_PREFIX + resolvedDirPath + '/' + p.replace(/^\.\//, '');
+                                return `![${alt}](${resolved})`;
+                            });
+                        }
+                        if (typeof marked !== 'undefined') marked.setOptions({ gfm: true, breaks: false });
+                        const html = typeof marked !== 'undefined' ? marked.parse(mdContent) : '<pre>' + escapeHtml(mdContent) + '</pre>';
+
+                        contentArea.innerHTML = `
+                            <div class="article-layout">
+                                <div class="article-main">
+                                    <div class="article-card">
+                                        <div class="markdown-body">${html}</div>
+                                    </div>
+                                </div>
+                                <aside class="article-toc" id="articleTOC"></aside>
+                            </div>`;
+
+                        if (typeof hljs !== 'undefined') {
+                            contentArea.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+                        }
+                        const markdownBody = contentArea.querySelector('.markdown-body');
+                        if (markdownBody) {
+                            const headings = markdownBody.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                            const tocContainer = document.getElementById('articleTOC');
+                            if (tocContainer) generateTOCFromHeadings(headings, tocContainer, document);
+                        }
+                    }
+
+                    const fileName = filePath.split('/').pop().replace(/\.(md|html)$/i, '');
+                    const parts = [];
+                    if (dirPath && dirPath !== '.') parts.push(...dirPath.split('/').filter(Boolean));
+                    parts.push(fileName);
+                    updateBreadcrumb(parts);
+                    updateUrlHash(filePath);
+                    highlightActiveNode(filePath);
+                    contentArea.scrollTop = 0;
+                    handleMobileArticleClick();
+                } catch (err) {
+                    contentArea.innerHTML = `<div class="welcome-card"><h2>⚠️ 加载失败</h2><p>${escapeHtml(err.message)}</p></div>`;
+                    updateBreadcrumb([]);
+                }
+            }
+
+            function loadWelcome() {
+                currentFilePath = null;
+                const blogName = window._blogName || '轻舟博客';
+                contentArea.innerHTML = `
+                    <div class="welcome-card">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        <h2>${escapeHtml(blogName)}</h2>
+                        <p>在左侧目录中选择一篇文章<br>支持 Markdown 与 HTML 格式</p>
+                        <p style="margin-top:16px; font-size:0.85rem; color:var(--text-muted);">
+                            共收录 <strong style="color:var(--accent);">${articleCount}</strong> 篇文章
+                        </p>
+                    </div>`;
+                updateBreadcrumb([]);
+                updateUrlHash('');
+                highlightActiveNode(null);
+            }
+
+            function highlightActiveNode(filePath) {
+                treeContainer.querySelectorAll('.node-row.active').forEach(el => el.classList.remove('active'));
+                if (filePath) {
+                    const target = treeContainer.querySelector(`[data-path="${escapeHtml(filePath)}"]`);
+                    if (target) {
+                        target.classList.add('active');
+                        target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                }
+            }
+
+            function buildTreeDOM(nodes, container, level = 0) {
+                container.innerHTML = '';
+                if (!nodes || nodes.length === 0) {
+                    container.innerHTML = '<div class="empty-tree"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>暂无文章</div>';
+                    return;
+                }
+                for (const node of nodes) {
+                    const nodeDiv = document.createElement('div');
+                    nodeDiv.className = 'tree-node collapsed';
+                    nodeDiv.dataset.name = node.name.toLowerCase();
+                    nodeDiv.dataset.type = node.type;
+                    nodeDiv.dataset.path = node.path || '';
+
+                    const row = document.createElement('div');
+                    row.className = 'node-row';
+                    row.dataset.path = node.path || '';
+
+                    if (node.type === 'directory') {
+                        row.innerHTML = `<span class="arrow">▼</span><span class="node-icon">📁</span><span class="node-name">${escapeHtml(node.name)}</span>`;
+                        row.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const isCollapsed = nodeDiv.classList.contains('collapsed');
+                            nodeDiv.classList.toggle('collapsed', !isCollapsed);
+                            nodeDiv.classList.toggle('expanded', isCollapsed);
+                            updateChildrenHeight(nodeDiv);
+                        });
+                    } else {
+                        const displayName = node.name.replace(/\.(md|html)$/i, '');
+                        const icon = node.name.toLowerCase().endsWith('.html') ? '🌐' : '📄';
+                        row.innerHTML = `<span class="arrow" style="visibility:hidden;">▼</span><span class="node-icon">${icon}</span><span class="node-name">${escapeHtml(displayName)}</span>`;
+                        row.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            loadArticle(node.path, node.dirPath || '');
+                        });
+                    }
+
+                    nodeDiv.appendChild(row);
+                    if (node.children && node.children.length > 0) {
+                        const childrenDiv = document.createElement('div');
+                        childrenDiv.className = 'children';
+                        buildTreeDOM(node.children, childrenDiv, level + 1);
+                        nodeDiv.appendChild(childrenDiv);
+                        if (level === 0) {
+                            nodeDiv.classList.remove('collapsed');
+                            nodeDiv.classList.add('expanded');
+                        }
+                    }
+                    container.appendChild(nodeDiv);
+                }
+                container.querySelectorAll('.tree-node.expanded').forEach(node => updateChildrenHeight(node));
+            }
+
+            function updateChildrenHeight(node) {
+                const childrenDiv = node.querySelector(':scope > .children');
+                if (!childrenDiv) return;
+                childrenDiv.style.maxHeight = node.classList.contains('collapsed') ? '0px' : childrenDiv.scrollHeight + 'px';
+            }
+
+            function filterTree(searchTerm) {
+                const term = searchTerm.toLowerCase().trim();
+                const allNodes = treeContainer.querySelectorAll('.tree-node');
+                allNodes.forEach(node => node.classList.remove('hidden-by-search','match-highlight','match-in-children'));
+                if (!term) {
+                    allNodes.forEach(node => {
+                        const level = getNodeLevel(node);
+                        if (level === 0 && node.dataset.type === 'directory') {
+                            node.classList.remove('collapsed'); node.classList.add('expanded'); updateChildrenHeight(node);
+                        } else if (level > 0) {
+                            node.classList.add('collapsed'); node.classList.remove('expanded'); updateChildrenHeight(node);
+                        }
+                    });
+                    return;
+                }
+                const matchedNodes = new Set();
+                allNodes.forEach(node => { if (node.dataset.name.includes(term)) matchedNodes.add(node); });
+                allNodes.forEach(node => {
+                    if (hasMatchedDescendant(node, matchedNodes)) {
+                        node.classList.add('match-in-children');
+                        node.classList.remove('collapsed'); node.classList.add('expanded');
+                    }
+                });
+                allNodes.forEach(node => {
+                    let parent = node.parentElement;
+                    if (matchedNodes.has(node) || node.classList.contains('match-in-children')) {
+                        while (parent) {
+                            if (parent.classList.contains('tree-node')) {
+                                parent.classList.remove('collapsed'); parent.classList.add('expanded');
+                            }
+                            parent = parent.parentElement;
+                        }
+                    }
+                });
+                allNodes.forEach(node => {
+                    const isMatch = matchedNodes.has(node);
+                    const hasMatch = node.classList.contains('match-in-children');
+                    if (!isMatch && !hasMatch && node.dataset.type === 'file') node.classList.add('hidden-by-search');
+                    if (!isMatch && !hasMatch && node.dataset.type === 'directory' && !hasVisibleChildren(node)) node.classList.add('hidden-by-search');
+                });
+                allNodes.forEach(node => { if (node.classList.contains('expanded')) updateChildrenHeight(node); });
+            }
+
+            function hasMatchedDescendant(node, matchedNodes) {
+                const children = node.querySelectorAll(':scope > .children > .tree-node');
+                for (const child of children) {
+                    if (matchedNodes.has(child)) return true;
+                    if (hasMatchedDescendant(child, matchedNodes)) return true;
+                }
+                return false;
+            }
+            function hasVisibleChildren(node) {
+                const children = node.querySelectorAll(':scope > .children > .tree-node');
+                for (const child of children) {
+                    if (!child.classList.contains('hidden-by-search')) return true;
+                    if (hasVisibleChildren(child)) return true;
+                }
+                return false;
+            }
+            function getNodeLevel(node) {
+                let level = 0, parent = node.parentElement;
+                while (parent) { if (parent.classList.contains('tree-node')) level++; parent = parent.parentElement; }
+                return level;
+            }
+
+            searchInput.addEventListener('input', () => {
+                clearTimeout(window._searchTimeout);
+                window._searchTimeout = setTimeout(() => filterTree(searchInput.value), 200);
+            });
+
+            async function loadTree() {
+                try {
+                    treeContainer.innerHTML = '<div class="empty-tree"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>加载中…</div>';
+                    const res = await fetch(API_TREE);
+                    if (!res.ok) throw new Error(`请求失败 (${res.status})`);
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+                    treeData = data.children || [];
+                    articleCount = countArticles(treeData);
+                    sidebarMeta.textContent = `共 ${articleCount} 篇`;
+                    buildTreeDOM(treeData, treeContainer);
+
+                    const hashPath = getFilePathFromHash();
+                    if (hashPath) {
+                        const found = findNodeByPath(treeData, hashPath);
+                        if (found) { loadArticle(hashPath, found.dirPath || ''); return; }
+                    }
+                    loadWelcome();
+                } catch (err) {
+                    treeContainer.innerHTML = `<div class="empty-tree">⚠️ 加载失败<br><small>${escapeHtml(err.message)}</small></div>`;
+                    sidebarMeta.textContent = '错误';
+                    loadWelcome();
+                }
+            }
+
+            function findNodeByPath(nodes, targetPath) {
+                for (const node of nodes) {
+                    if (node.type === 'file' && node.path === targetPath) return node;
+                    if (node.children) {
+                        const found = findNodeByPath(node.children, targetPath);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+
+            window.addEventListener('hashchange', () => {
+                const hashPath = getFilePathFromHash();
+                if (hashPath && hashPath !== currentFilePath && treeData) {
+                    const found = findNodeByPath(treeData, hashPath);
+                    if (found) loadArticle(hashPath, found.dirPath || '');
+                } else if (!hashPath && currentFilePath) {
+                    loadWelcome();
+                }
+            });
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); searchInput.focus(); }
+                if (e.key === 'Escape') { searchInput.value = ''; filterTree(''); searchInput.blur(); }
+            });
+
+            loadTree();
+            updateBreadcrumb([]);
+
+            // 初始化时先加载配置，再加载树
+            async function initApp() {
+                await loadBlogConfig();
+                loadTree();
+                updateBreadcrumb([]);
+            }
+
+            initApp();
+
+        })();
+    </script>
+</body>
+</html>
