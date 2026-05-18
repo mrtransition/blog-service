@@ -10,7 +10,7 @@ config.json
 TEST/
 
 # Go 编译缓存
-#*.exe
+*.exe
 *.exe~
 *.dll
 *.so
