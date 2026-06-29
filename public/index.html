@@ -10,14 +10,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/javascript.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/python.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/bash.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/css.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/json.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/xml.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/sql.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/yaml.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/markdown.min.js"></script>
     <style>
         :root {
             --bg: #fafaf8;
@@ -190,8 +183,15 @@
         .tree-node.expanded > .node-row .arrow { transform: rotate(0deg); }
         .tree-node .node-row .node-icon {
             flex-shrink: 0;
-            width: 20px; text-align: center;
-            font-size: 0.9rem;
+            width: 20px; height: 20px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .tree-node .node-row .node-icon svg {
+            width: 16px; height: 16px;
+            color: var(--text-muted);
+        }
+        .tree-node.expanded > .node-row .node-icon svg {
+            color: var(--accent);
         }
         .tree-node .node-row .node-name {
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -206,6 +206,12 @@
         .tree-node.collapsed > .children { max-height: 0 !important; border-left-color: transparent; }
 
         .tree-node.hidden-by-search { display: none; }
+        .search-empty {
+            text-align: center; padding: 32px 20px;
+            color: var(--text-muted); font-size: 0.85rem; display: none;
+        }
+        .search-empty.show { display: block; }
+        .search-empty svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
         .tree-node.match-highlight > .node-row .node-name {
             background: #fff3cd; border-radius: 3px; padding: 0 4px;
         }
@@ -228,10 +234,15 @@
             border-bottom: 1px solid var(--border);
             display: flex; align-items: center;
             padding: 0 28px; gap: 14px;
-            background: rgba(255,255,255,0.8);
-            backdrop-filter: blur(10px);
+            background: #fff;
             box-shadow: 0 1px 6px rgba(0,0,0,0.03);
             z-index: 50; flex-shrink: 0;
+        }
+        @supports (backdrop-filter: blur(10px)) {
+            .top-bar {
+                background: rgba(255,255,255,0.8);
+                backdrop-filter: blur(10px);
+            }
         }
         .menu-toggle {
             display: none; width: 38px; height: 38px;
@@ -346,7 +357,7 @@
             border: 1px solid var(--border);
             transition: box-shadow var(--transition);
         }
-        .article-card:hover { box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+
 
         .welcome-card {
             max-width: 560px; margin: 80px auto 0;
@@ -424,15 +435,21 @@
         .markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 2.5em 0; }
         .markdown-body input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent); }
 
-        .html-content { line-height: 1.9; }
+
 
         /* 移动端遮罩 */
         .sidebar-overlay {
-            display: none; position: fixed; inset: 0;
+            position: fixed; inset: 0;
             background: rgba(0,0,0,0.25); backdrop-filter: blur(4px);
-            z-index: 99; transition: opacity var(--transition);
+            z-index: 99; opacity: 0; pointer-events: none;
+            transition: opacity var(--transition);
         }
-        .sidebar-overlay.show { display: block; }
+        .sidebar-overlay.show {
+            opacity: 1; pointer-events: auto;
+        }
+        @supports not (backdrop-filter: blur(4px)) {
+            .sidebar-overlay { background: rgba(0,0,0,0.35); }
+        }
 
         /* 响应式 */
         @media (max-width: 1024px) {
@@ -494,6 +511,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                 正在加载目录…
             </div>
+            <div class="search-empty" id="searchEmpty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                <p>未找到匹配的文章</p>
+            </div>
         </div>
     </aside>
 
@@ -525,12 +546,13 @@
             const contentArea = document.getElementById('contentArea');
             const breadcrumb = document.getElementById('breadcrumb');
             const searchInput = document.getElementById('searchInput');
+            const searchEmpty = document.getElementById('searchEmpty');
             const sidebarMeta = document.getElementById('sidebarMeta');
-            const sidebarTitle = document.querySelector('.sidebar-title');  // 新增引用
-            const welcomeTitle = document.querySelector('.welcome-card h2'); // 欢迎页标题（后续动态设置）
+            const sidebarTitle = document.querySelector('.sidebar-title');
 
             let treeData = null;
             let currentFilePath = null;
+            let currentDirPath = '';
             let articleCount = 0;
 
             // ========= 获取博客配置 =========
@@ -560,12 +582,10 @@
             function openSidebar() {
                 sidebar.classList.add('open');
                 sidebarOverlay.classList.add('show');
-                document.body.style.overflow = 'hidden';
             }
             function closeSidebar() {
                 sidebar.classList.remove('open');
                 sidebarOverlay.classList.remove('show');
-                document.body.style.overflow = '';
             }
             menuToggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
             sidebarOverlay.addEventListener('click', closeSidebar);
@@ -668,6 +688,24 @@
                             highlightActiveNode(null);
                             updateBreadcrumb([]);
                             updateUrlHash('');
+                        } else if (el.dataset.action === 'nav') {
+                            const idx = parseInt(el.dataset.index);
+                            const dirSegments = currentDirPath.split('/').filter(Boolean);
+                            const targetDir = dirSegments.slice(0, idx).join('/');
+                            treeContainer.querySelectorAll('.tree-node').forEach(n => {
+                                if (n.dataset.path === targetDir) {
+                                    let p = n;
+                                    while (p) {
+                                        if (p.classList.contains('tree-node')) {
+                                            p.classList.remove('collapsed');
+                                            p.classList.add('expanded');
+                                            updateTreeHeight(p);
+                                        }
+                                        p = p.parentElement;
+                                    }
+                                    n.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+                                }
+                            });
                         }
                     });
                 });
@@ -693,8 +731,9 @@
                     if (data.error) throw new Error(data.error);
 
                     currentFilePath = filePath;
+                    currentDirPath = data.dirPath || dirPath || '';
                     const isHtml = data.fileType === 'html';
-                    const resolvedDirPath = data.dirPath || dirPath || '';
+                    const resolvedDirPath = currentDirPath;
 
                     if (isHtml) {
                         const fileUrl = BLOG_FILES_PREFIX + filePath;
@@ -786,11 +825,12 @@
             function highlightActiveNode(filePath) {
                 treeContainer.querySelectorAll('.node-row.active').forEach(el => el.classList.remove('active'));
                 if (filePath) {
-                    const target = treeContainer.querySelector(`[data-path="${escapeHtml(filePath)}"]`);
-                    if (target) {
-                        target.classList.add('active');
-                        target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                    }
+                    treeContainer.querySelectorAll('.node-row').forEach(el => {
+                        if (el.dataset.path === filePath) {
+                            el.classList.add('active');
+                            el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+                        }
+                    });
                 }
             }
 
@@ -812,7 +852,7 @@
                     row.dataset.path = node.path || '';
 
                     if (node.type === 'directory') {
-                        row.innerHTML = `<span class="arrow">▼</span><span class="node-icon">📁</span><span class="node-name">${escapeHtml(node.name)}</span>`;
+                        row.innerHTML = `<span class="arrow">▼</span><span class="node-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span><span class="node-name">${escapeHtml(node.name)}</span>`;
                         row.addEventListener('click', (e) => {
                             e.stopPropagation();
                             const isCollapsed = nodeDiv.classList.contains('collapsed');
@@ -822,8 +862,11 @@
                         });
                     } else {
                         const displayName = node.name.replace(/\.(md|html)$/i, '');
-                        const icon = node.name.toLowerCase().endsWith('.html') ? '🌐' : '📄';
-                        row.innerHTML = `<span class="arrow" style="visibility:hidden;">▼</span><span class="node-icon">${icon}</span><span class="node-name">${escapeHtml(displayName)}</span>`;
+                        const isHtmlFile = node.name.toLowerCase().endsWith('.html');
+                        const fileIcon = isHtmlFile
+                            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
+                            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+                        row.innerHTML = `<span class="arrow" style="visibility:hidden;">▼</span><span class="node-icon">${fileIcon}</span><span class="node-name">${escapeHtml(displayName)}</span>`;
                         row.addEventListener('click', (e) => {
                             e.stopPropagation();
                             loadArticle(node.path, node.dirPath || '');
@@ -874,6 +917,7 @@
                 const term = searchTerm.toLowerCase().trim();
                 const allNodes = treeContainer.querySelectorAll('.tree-node');
                 allNodes.forEach(node => node.classList.remove('hidden-by-search','match-highlight','match-in-children'));
+                searchEmpty.classList.remove('show');
                 if (!term) {
                     allNodes.forEach(node => {
                         const level = getNodeLevel(node);
@@ -905,13 +949,16 @@
                         }
                     }
                 });
+                let visibleCount = 0;
                 allNodes.forEach(node => {
                     const isMatch = matchedNodes.has(node);
                     const hasMatch = node.classList.contains('match-in-children');
                     if (!isMatch && !hasMatch && node.dataset.type === 'file') node.classList.add('hidden-by-search');
                     if (!isMatch && !hasMatch && node.dataset.type === 'directory' && !hasVisibleChildren(node)) node.classList.add('hidden-by-search');
+                    if (!node.classList.contains('hidden-by-search')) visibleCount++;
                 });
                 allNodes.forEach(node => { if (node.classList.contains('expanded')) updateChildrenHeight(node); });
+                if (visibleCount === 0) searchEmpty.classList.add('show');
             }
 
             function hasMatchedDescendant(node, matchedNodes) {
@@ -958,7 +1005,7 @@
                         const found = findNodeByPath(treeData, hashPath);
                         if (found) { loadArticle(hashPath, found.dirPath || ''); return; }
                     }
-                    loadWelcome();
+                    if (!currentFilePath) loadWelcome();
                 } catch (err) {
                     treeContainer.innerHTML = `<div class="empty-tree">⚠️ 加载失败<br><small>${escapeHtml(err.message)}</small></div>`;
                     sidebarMeta.textContent = '错误';

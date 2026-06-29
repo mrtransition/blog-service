@@ -39,6 +39,13 @@ type TreeNode struct {
 	Children []*TreeNode `json:"children,omitempty"`
 }
 
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s", r.Method, r.URL.Path, r.RemoteAddr)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	flag.Parse()
 
@@ -143,7 +150,7 @@ func main() {
 	addr := fmt.Sprintf(":%d", config.Port)
 	log.Printf("🚀 %s 已启动: http://localhost%s", config.BlogName, addr)
 	log.Printf("📂 博客目录: %s", absBlogDir)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, loggingMiddleware(mux)); err != nil {
 		log.Fatalf("服务启动失败: %v", err)
 	}
 }
@@ -244,14 +251,12 @@ func buildTree(basePath, relPath string) []*TreeNode {
 		}
 		childRel := filepath.Join(relPath, entry.Name())
 		children := buildTree(basePath, childRel)
-		if len(children) > 0 {
-			nodes = append(nodes, &TreeNode{
-				Name:     entry.Name(),
-				Type:     "directory",
-				Path:     filepath.ToSlash(childRel),
-				Children: children,
-			})
-		}
+		nodes = append(nodes, &TreeNode{
+			Name:     entry.Name(),
+			Type:     "directory",
+			Path:     filepath.ToSlash(childRel),
+			Children: children,
+		})
 	}
 
 	// 文件
