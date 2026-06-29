@@ -205,6 +205,13 @@
         }
         .tree-node.collapsed > .children { max-height: 0 !important; border-left-color: transparent; }
 
+        .tree-node.hidden-by-search { display: none; }
+        .tree-node.match-highlight > .node-row .node-name {
+            background: #fff3cd; border-radius: 3px; padding: 0 4px;
+        }
+        .tree-node.match-in-children > .node-row .node-name::after {
+            content: ' ●'; color: var(--accent); font-size: 0.7rem; vertical-align: middle;
+        }
         .empty-tree {
             text-align: center; padding: 40px 20px;
             color: var(--text-muted); font-size: 0.85rem; line-height: 1.7;
@@ -811,7 +818,7 @@
                             const isCollapsed = nodeDiv.classList.contains('collapsed');
                             nodeDiv.classList.toggle('collapsed', !isCollapsed);
                             nodeDiv.classList.toggle('expanded', isCollapsed);
-                            updateChildrenHeight(nodeDiv);
+                            updateTreeHeight(nodeDiv);
                         });
                     } else {
                         const displayName = node.name.replace(/\.(md|html)$/i, '');
@@ -842,7 +849,25 @@
             function updateChildrenHeight(node) {
                 const childrenDiv = node.querySelector(':scope > .children');
                 if (!childrenDiv) return;
-                childrenDiv.style.maxHeight = node.classList.contains('collapsed') ? '0px' : childrenDiv.scrollHeight + 'px';
+                if (node.classList.contains('collapsed')) {
+                    childrenDiv.style.maxHeight = '0px';
+                } else {
+                    const descendants = childrenDiv.querySelectorAll('.children');
+                    descendants.forEach(n => n.style.maxHeight = 'none');
+                    const h = childrenDiv.scrollHeight;
+                    descendants.forEach(n => n.style.maxHeight = '');
+                    childrenDiv.style.maxHeight = h + 'px';
+                }
+            }
+            function updateTreeHeight(node) {
+                updateChildrenHeight(node);
+                let parent = node.parentElement;
+                while (parent) {
+                    if (parent.classList.contains('tree-node')) {
+                        updateChildrenHeight(parent);
+                    }
+                    parent = parent.parentElement;
+                }
             }
 
             function filterTree(searchTerm) {
@@ -853,11 +878,12 @@
                     allNodes.forEach(node => {
                         const level = getNodeLevel(node);
                         if (level === 0 && node.dataset.type === 'directory') {
-                            node.classList.remove('collapsed'); node.classList.add('expanded'); updateChildrenHeight(node);
+                            node.classList.remove('collapsed'); node.classList.add('expanded');
                         } else if (level > 0) {
-                            node.classList.add('collapsed'); node.classList.remove('expanded'); updateChildrenHeight(node);
+                            node.classList.add('collapsed'); node.classList.remove('expanded');
                         }
                     });
+                    allNodes.forEach(node => { if (node.classList.contains('expanded')) updateChildrenHeight(node); });
                     return;
                 }
                 const matchedNodes = new Set();
@@ -965,10 +991,6 @@
                 if (e.key === 'Escape') { searchInput.value = ''; filterTree(''); searchInput.blur(); }
             });
 
-            loadTree();
-            updateBreadcrumb([]);
-
-            // 初始化时先加载配置，再加载树
             async function initApp() {
                 await loadBlogConfig();
                 loadTree();
