@@ -16,6 +16,7 @@
 - 元信息快照：启动时扫描一次，`POST /reload` 热刷新
 - SEO：`/article/<路径>` 提供 og/canonical 入口，`/sitemap.xml` 仅收录已发布文章
 - XSS 防护：Markdown 渲染结果经 DOMPurify 清洗，剥离脚本、事件属性与 `javascript:` URL
+- 前端资源本地嵌入：marked、DOMPurify、highlight.js 随二进制分发，无需外部 CDN，离线可用
 - 访问控制：默认仅监听 `127.0.0.1`；可选共享密钥触发 `/reload` 与 Basic Auth
 
 ## 快速开始
@@ -104,5 +105,5 @@ draft: false
 - 路径读取限制在 `-dir` 根目录内，并校验符号链接，`../` 与编码逃逸请求返回 4xx。
 - `/blog-files/` 禁止目录列表。
 - `/reload` 默认仅限本机；非回环场景需共享密钥。
-- Markdown 渲染结果在写入页面前经 DOMPurify 清洗，`<script>`、事件属性（如 `onerror`）与 `javascript:` URL 会被剥离；清洗库加载失败时降级为转义纯文本。
+- Markdown 渲染结果在写入页面前经 DOMPurify 清洗，`<script>`、事件属性（如 `onerror`）与 `javascript:` URL 会被剥离；前端库随二进制本地嵌入，离线环境也能正常渲染，资源缺失时降级为转义纯文本。
 - HTML 文章通过 `iframe sandbox="allow-same-origin"` 隔离，不执行文章内脚本。

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -20,7 +21,7 @@ import (
 	"time"
 )
 
-//go:embed public/index.html
+//go:embed public
 var frontend embed.FS
 
 // 配置结构
@@ -62,6 +63,7 @@ type App struct {
 	snapshot  atomic.Pointer[Snapshot]
 	indexHTML []byte
 	indexETag string
+	publicFS  fs.FS
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -148,7 +150,11 @@ func newApp(blogDir string, cfg Config) (*App, error) {
 		return nil, fmt.Errorf("无法解析博客目录真实路径: %w", err)
 	}
 
-	indexHTML, err := frontend.ReadFile("public/index.html")
+	publicFS, err := fs.Sub(frontend, "public")
+	if err != nil {
+		return nil, fmt.Errorf("前端资源丢失: %w", err)
+	}
+	indexHTML, err := fs.ReadFile(publicFS, "index.html")
 	if err != nil {
 		return nil, fmt.Errorf("前端页面丢失: %w", err)
 	}
@@ -159,6 +165,7 @@ func newApp(blogDir string, cfg Config) (*App, error) {
 		cfg:       cfg,
 		indexHTML: indexHTML,
 		indexETag: `"` + hex.EncodeToString(sum[:16]) + `"`,
+		publicFS:  publicFS,
 	}
 	if snap, err := app.reload(); err != nil {
 		log.Printf("⚠️ 扫描博客目录失败: %v", err)
@@ -288,8 +295,8 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 	if r.URL.Path != "/" {
-		// 目前仅嵌入 index.html；保留 embed.FS 兜底以便将来增加静态资源。
-		http.FileServer(http.FS(frontend)).ServeHTTP(w, r)
+		// 提供本地嵌入的前端静态资源（/vendor/...），不依赖外部 CDN。
+		http.FileServer(http.FS(a.publicFS)).ServeHTTP(w, r)
 		return
 	}
 

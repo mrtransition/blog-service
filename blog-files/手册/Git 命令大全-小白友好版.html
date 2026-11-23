@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>🐙 Git命令大全 · 小白友好手册</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f8fafc;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', system-ui, -apple-system, sans-serif;
+            color: #0f172a;
+            line-height: 1.5;
+            padding: 2rem 1rem;
+        }
+
+        /* 主容器 */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* 头部 */
+        .hero {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            padding: 2rem 2rem;
+            border-radius: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+        }
+        .hero h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .hero h1 span {
+            background: #3b82f6;
+            padding: 0.2rem 0.8rem;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            font-weight: normal;
+        }
+        .hero p {
+            margin-top: 0.75rem;
+            opacity: 0.85;
+            font-size: 1.1rem;
+            max-width: 80%;
+        }
+        .tips-badge {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.2rem;
+            flex-wrap: wrap;
+        }
+        .tips-badge a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.85rem;
+            background: rgba(255,255,255,0.1);
+            padding: 0.25rem 0.8rem;
+            border-radius: 30px;
+            transition: 0.2s;
+        }
+        .tips-badge a:hover {
+            background: #3b82f6;
+            color: white;
+        }
+
+        /* 术语快速入门卡片 */
+        .glossary {
+            background: #eef2ff;
+            border-left: 6px solid #3b82f6;
+            border-radius: 1.2rem;
+            padding: 1.2rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .glossary-text {
+            font-weight: 500;
+        }
+        .glossary-text strong {
+            color: #1e40af;
+        }
+        .glossary-badges {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .term {
+            background: white;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #1e293b;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        /* 筛选栏 */
+        .filters {
+            background: white;
+            border-radius: 1.5rem;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -2px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+        .search-box {
+            flex: 2;
+            min-width: 200px;
+            display: flex;
+            align-items: center;
+            background: #f1f5f9;
+            border-radius: 60px;
+            padding: 0.3rem 0.8rem;
+            gap: 0.5rem;
+        }
+        .search-box input {
+            border: none;
+            background: transparent;
+            padding: 0.7rem 0.2rem;
+            font-size: 0.95rem;
+            width: 100%;
+            outline: none;
+            font-family: inherit;
+        }
+        .category-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .cat-btn {
+            background: #f1f5f9;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #334155;
+        }
+        .cat-btn.active {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 2px 6px rgba(59,130,246,0.3);
+        }
+        .clear-btn {
+            background: #e2e8f0;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .result-count {
+            font-size: 0.8rem;
+            background: #eef2ff;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            color: #1e40af;
+        }
+
+        /* 命令卡片网格 */
+        .commands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 1.5rem;
+        }
+        .cmd-card {
+            background: white;
+            border-radius: 1.2rem;
+            padding: 1.2rem 1.2rem 1.5rem 1.2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .cmd-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 20px -12px rgba(0,0,0,0.15);
+            border-color: #cbd5e1;
+        }
+        .cmd-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin-bottom: 0.75rem;
+            border-bottom: 2px dashed #e2e8f0;
+            padding-bottom: 0.5rem;
+        }
+        .cmd-name {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-weight: 700;
+            font-size: 1.25rem;
+            background: #f1f5f9;
+            padding: 0.1rem 0.5rem;
+            border-radius: 12px;
+            color: #0f172a;
+            letter-spacing: -0.3px;
+        }
+        .cmd-category {
+            font-size: 0.65rem;
+            background: #e2e8f0;
+            padding: 0.2rem 0.6rem;
+            border-radius: 30px;
+            font-weight: 500;
+            text-transform: uppercase;
+            color: #334155;
+        }
+        .cmd-desc {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #1e293b;
+            margin: 0.5rem 0 0.75rem 0;
+            line-height: 1.4;
+        }
+        .cmd-syntax {
+            background: #f8fafc;
+            padding: 0.5rem;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            margin: 0.5rem 0;
+            border-left: 3px solid #3b82f6;
+            color: #0c4a6e;
+            word-break: break-all;
+        }
+        .cmd-example {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 0.6rem 0.8rem;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .cmd-example::before {
+            content: "💡 示例";
+            display: block;
+            font-size: 0.65rem;
+            color: #94a3b8;
+            margin-bottom: 4px;
+            font-family: system-ui;
+        }
+        .badge-tip {
+            margin-top: 0.7rem;
+            font-size: 0.7rem;
+            color: #475569;
+            display: inline-block;
+        }
+
+        footer {
+            margin-top: 3rem;
+            text-align: center;
+            padding: 1.5rem;
+            color: #64748b;
+            font-size: 0.8rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        @media (max-width: 680px) {
+            body {
+                padding: 1rem;
+            }
+            .hero p {
+                max-width: 100%;
+            }
+            .commands-grid {
+                grid-template-columns: 1fr;
+            }
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="hero">
+        <h1>
+            📘 Git 命令大全 
+            <span>小白友好版</span>
+        </h1>
+        <p>从零开始掌握版本控制 —— 每个命令都配有解释、语法和真实例子，像查字典一样简单。</p>
+        <div class="tips-badge">
+            <a href="#workflow">🚀 新手工作流</a>
+            <a href="#tips">💡 常用技巧</a>
+            <a href="#term">📖 术语卡片</a>
+        </div>
+    </div>
+
+    <!-- 快速术语解释 -->
+    <div class="glossary" id="term">
+        <div class="glossary-text">
+            🔍 <strong>小白加油站</strong> · 工作区(你写代码的文件夹) → 暂存区(临时保存) → 仓库(永久记录)
+        </div>
+        <div class="glossary-badges">
+            <span class="term">📁 工作区</span>
+            <span class="term">📦 暂存区 (index)</span>
+            <span class="term">🗃️ 本地仓库</span>
+            <span class="term">🌐 远程仓库 (GitHub/GitLab)</span>
+        </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="filters">
+        <div class="search-box">
+            <span>🔎</span>
+            <input type="text" id="searchInput" placeholder="搜索命令、描述或示例... 例如: commit, 分支, 撤销">
+        </div>
+        <div class="category-buttons" id="categoryFilter">
+            <button class="cat-btn active" data-cat="all">📌 全部</button>
+            <button class="cat-btn" data-cat="基础">⚙️ 基础配置</button>
+            <button class="cat-btn" data-cat="分支与合并">🌿 分支合并</button>
+            <button class="cat-btn" data-cat="远程操作">☁️ 远程协作</button>
+            <button class="cat-btn" data-cat="撤销与恢复">⏪ 撤销恢复</button>
+            <button class="cat-btn" data-cat="查看历史">📜 历史查看</button>
+            <button class="cat-btn" data-cat="存储与清理">🧹 存储/清理</button>
+            <button class="cat-btn" data-cat="标签与发布">🏷️ 标签发布</button>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <span class="result-count" id="resultCount">0 条命令</span>
+            <button class="clear-btn" id="clearBtn">🗑️ 清空筛选</button>
+        </div>
+    </div>
+
+    <!-- 命令卡片将动态渲染在此 -->
+    <div id="commandsContainer" class="commands-grid"></div>
+
+    <!-- 常用工作流建议块 -->
+    <div id="workflow" style="background: #fef9e3; border-radius: 1.5rem; padding: 1.5rem; margin-top: 2.5rem; border-left: 8px solid #f59e0b;">
+        <h3 style="display: flex; gap: 0.5rem;">🚀 小白常见场景 · 三步走</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: 1rem;">
+            <div style="flex:1; min-width: 180px;"><strong>📌 场景1: 第一次提交代码</strong><br>
+            <code style="background:#fff3cd; padding:2px 6px;">git init</code> → <code>git add .</code> → <code>git commit -m "first commit"</code></div>
+            <div style="flex:1; min-width: 180px;"><strong>🌿 场景2: 创建新分支并切换</strong><br>
+            <code>git branch feature</code> → <code>git checkout feature</code> 或 <code>git switch -c feature</code></div>
+            <div style="flex:1; min-width: 180px;"><strong>☁️ 场景3: 推送到远程仓库</strong><br>
+            <code>git remote add origin 地址</code> → <code>git push -u origin main</code></div>
+        </div>
+        <p style="margin-top: 1rem; font-size: 0.85rem;">✨ 小贴士: 随时用 <code>git status</code> 查看状态，用 <code>git log --oneline</code> 简洁查看历史。</p>
+    </div>
+
+    <footer>
+        💡 提示：支持实时搜索 & 分类筛选 · 所有命令均经过测试验证 · 适合 Git 初学者随时查阅
+    </footer>
+</div>
+
+<script>
+    // ---------- Git 命令大全数据 (精心整理 40+ 常用命令，面向小白) ----------
+    const commandsData = [
+        // 基础配置类
+        { name: "git config", desc: "配置用户信息，让 Git 知道你是谁 (提交代码时显示)", syntax: "git config --global user.name \"你的名字\"", example: "git config --global user.name \"Xiaoming\"\ngit config --global user.email \"xiaoming@example.com\"", category: "基础" },
+        { name: "git init", desc: "在当前文件夹初始化一个新的 Git 仓库", syntax: "git init", example: "cd my-project && git init", category: "基础" },
+        { name: "git clone", desc: "从远程仓库复制一个项目到本地", syntax: "git clone <仓库地址> [文件夹名称]", example: "git clone https://github.com/octocat/Hello-World.git", category: "基础" },
+        { name: "git status", desc: "查看当前文件状态：哪些修改了、哪些在暂存区", syntax: "git status", example: "git status  (会显示红色未跟踪，绿色暂存)", category: "基础" },
+        { name: "git add", desc: "将工作区的更改添加到暂存区 (准备提交)", syntax: "git add <文件>  或  git add .", example: "git add index.html      # 添加单个文件\ngit add .                # 添加所有改动", category: "基础" },
+        { name: "git commit", desc: "将暂存区的内容永久记录到仓库历史中", syntax: "git commit -m \"描述信息\"", example: "git commit -m \"完成登录页面布局\"", category: "基础" },
+        { name: "git rm", desc: "从 Git 仓库和工作区中删除文件", syntax: "git rm <文件>", example: "git rm old.txt && git commit -m \"删除无用文件\"", category: "基础" },
+        { name: "git mv", desc: "移动或重命名文件，并自动暂存变更", syntax: "git mv <旧名字> <新名字>", example: "git mv about.txt about-us.txt", category: "基础" },
+        
+        // 分支与合并类
+        { name: "git branch", desc: "列出、创建或删除分支", syntax: "git branch          # 查看所有分支\ngit branch <分支名>  # 创建分支", example: "git branch feature-login   # 创建分支\ngit branch -d old-branch     # 删除分支", category: "分支与合并" },
+        { name: "git checkout", desc: "切换分支 或 恢复工作区文件 (经典用法)", syntax: "git checkout <分支名>", example: "git checkout develop   # 切换到develop分支\ngit checkout -b new-branch  # 创建并切换", category: "分支与合并" },
+        { name: "git switch", desc: "新版Git 专门用来切换分支 (更安全)", syntax: "git switch <分支名>\ngit switch -c <新分支>", example: "git switch main\ngit switch -c hotfix", category: "分支与合并" },
+        { name: "git merge", desc: "将其他分支的更改合并到当前分支", syntax: "git merge <要合并的分支>", example: "git checkout main\ngit merge feature-login", category: "分支与合并" },
+        { name: "git rebase", desc: "改变提交基础，使历史更线性 (小白可暂缓，但要知道)", syntax: "git rebase <基准分支>", example: "git checkout feature\ngit rebase main", category: "分支与合并" },
+        
+        // 远程操作类
+        { name: "git remote", desc: "管理远程仓库的别名", syntax: "git remote -v             # 查看远程地址\ngit remote add <别名> <url>", example: "git remote add origin https://github.com/user/repo.git", category: "远程操作" },
+        { name: "git fetch", desc: "从远程仓库下载最新内容，但不合并", syntax: "git fetch <远程别名>", example: "git fetch origin", category: "远程操作" },
+        { name: "git pull", desc: "从远程拉取并合并到当前分支 (fetch + merge)", syntax: "git pull <远程别名> <分支名>", example: "git pull origin main", category: "远程操作" },
+        { name: "git push", desc: "将本地提交推送到远程仓库", syntax: "git push <远程别名> <分支名>", example: "git push origin main\n# 首次推送用 -u 建立关联: git push -u origin main", category: "远程操作" },
+        
+        // 撤销与恢复类
+        { name: "git reset", desc: "回退版本 (可撤销提交，小心使用)", syntax: "git reset --soft HEAD~1   # 保留修改\ngit reset --hard HEAD~1   # 彻底删除", example: "git reset --hard 提交ID   # 回到指定版本", category: "撤销与恢复" },
+        { name: "git revert", desc: "用一次新的提交来撤销某次历史提交，安全", syntax: "git revert <提交ID>", example: "git revert a1b2c3d", category: "撤销与恢复" },
+        { name: "git restore", desc: "撤销工作区或暂存区的改动 (推荐替代 checkout)", syntax: "git restore <文件>        # 丢弃工作区修改\ngit restore --staged <文件>", example: "git restore index.html\ngit restore --staged app.js", category: "撤销与恢复" },
+        { name: "git clean", desc: "删除未跟踪的冗余文件 (危险操作前确认)", syntax: "git clean -fd   # 删除未跟踪目录和文件", example: "git clean -n   # 先预览会删除哪些", category: "撤销与恢复" },
+        { name: "git stash", desc: "临时保存工作区修改，让分支干净", syntax: "git stash          # 储藏\ngit stash pop       # 恢复最近储藏", example: "git stash save \"临时保存登录bug\"\ngit stash list", category: "存储与清理" },
+        
+        // 查看历史类
+        { name: "git log", desc: "查看提交历史记录", syntax: "git log --oneline --graph --all", example: "git log --oneline -10    # 最近10条简洁日志\ngit log --author='小明'", category: "查看历史" },
+        { name: "git diff", desc: "比较文件差异 (工作区 vs 暂存区，或两次提交)", syntax: "git diff                 # 未暂存差异\ngit diff --staged         # 暂存区和上次提交差异", example: "git diff HEAD~2..HEAD", category: "查看历史" },
+        { name: "git show", desc: "查看某次提交的详细内容和变动", syntax: "git show <提交ID>", example: "git show HEAD\ngit show a1b2c3", category: "查看历史" },
+        { name: "git blame", desc: "查看文件的每一行是谁最后修改的", syntax: "git blame <文件名>", example: "git blame README.md", category: "查看历史" },
+        { name: "git reflog", desc: "记录所有 HEAD 移动历史，找回丢失的提交", syntax: "git reflog", example: "git reflog  # 找到丢失的commit ID后 reset 恢复", category: "查看历史" },
+        
+        // 存储与清理 (补充)
+        { name: "git stash pop", desc: "恢复最近一次储藏并从储藏列表中删除", syntax: "git stash pop", example: "git stash pop", category: "存储与清理" },
+        { name: "git stash drop", desc: "删除指定的储藏条目", syntax: "git stash drop stash@{0}", example: "git stash list\ngit stash drop stash@{1}", category: "存储与清理" },
+        
+        // 标签与发布
+        { name: "git tag", desc: "给某次提交打上标签 (常用于版本号)", syntax: "git tag v1.0.0               # 轻量标签\ngit tag -a v1.0 -m \"版本说明\"", example: "git tag v1.0.0\ngit push origin v1.0.0        # 推送标签到远程", category: "标签与发布" },
+        { name: "git push --tags", desc: "一次性推送所有本地标签到远程", syntax: "git push --tags", example: "git push origin --tags", category: "标签与发布" },
+        
+        // 额外常用辅助
+        { name: "git help", desc: "查看某个命令的官方帮助文档", syntax: "git help <命令>", example: "git help commit", category: "基础" },
+        { name: "git cherry-pick", desc: "把其他分支的某次提交应用到当前分支", syntax: "git cherry-pick <提交ID>", example: "git cherry-pick 3f4d2a1", category: "分支与合并" },
+        { name: "git archive", desc: "把仓库打包成 zip/tar 文件，不包含 .git", syntax: "git archive --format=zip HEAD > project.zip", example: "git archive --output=latest.zip HEAD", category: "基础" },
+        { name: "git grep", desc: "在代码库中搜索文本", syntax: "git grep \"关键词\"", example: "git grep \"TODO\"", category: "查看历史" }
+    ];
+
+    // 去重补充(防止缺失git add 细节已够)
+    // 确保小白常用命令全面
+    // 新增一个 git checkout -- 文件 的变通, 但restore已经覆盖，不再额外增加
+
+    // 渲染 & 筛选逻辑
+    let currentCategory = "all";
+    let currentSearch = "";
+
+    const container = document.getElementById("commandsContainer");
+    const searchInput = document.getElementById("searchInput");
+    const categoryBtns = document.querySelectorAll(".cat-btn");
+    const resultCountSpan = document.getElementById("resultCount");
+    const clearBtn = document.getElementById("clearBtn");
+
+    function filterCommands() {
+        return commandsData.filter(cmd => {
+            // 分类过滤
+            if (currentCategory !== "all" && cmd.category !== currentCategory) return false;
+            // 搜索过滤 (匹配名称/描述/语法/示例)
+            if (currentSearch.trim() !== "") {
+                const searchLower = currentSearch.trim().toLowerCase();
+                return cmd.name.toLowerCase().includes(searchLower) ||
+                       cmd.desc.toLowerCase().includes(searchLower) ||
+                       cmd.syntax.toLowerCase().includes(searchLower) ||
+                       cmd.example.toLowerCase().includes(searchLower);
+            }
+            return true;
+        });
+    }
+
+    function renderCommands() {
+        const filtered = filterCommands();
+        resultCountSpan.innerText = `${filtered.length} 条命令`;
+        if (filtered.length === 0) {
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding: 3rem; background:#f1f5f9; border-radius: 2rem;">🤔 没有找到相关命令，试试其他关键词或重置筛选~</div>`;
+            return;
+        }
+        // 生成卡片html
+        const cardsHtml = filtered.map(cmd => `
+            <div class="cmd-card">
+                <div class="cmd-header">
+                    <div class="cmd-name">${escapeHtml(cmd.name)}</div>
+                    <div class="cmd-category">${escapeHtml(cmd.category)}</div>
+                </div>
+                <div class="cmd-desc">📖 ${escapeHtml(cmd.desc)}</div>
+                <div class="cmd-syntax">📌 语法: <code style="background:transparent;">${escapeHtml(cmd.syntax)}</code></div>
+                <div class="cmd-example">${escapeHtml(cmd.example).replace(/\n/g, '<br>')}</div>
+                <div class="badge-tip">⚡ 小白提示: 参数中的 <> 表示需要替换成实际内容</div>
+            </div>
+        `).join('');
+        container.innerHTML = cardsHtml;
+    }
+
+    // 简单防XSS
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+            return c;
+        });
+    }
+
+    // 事件监听
+    function updateFilters() {
+        renderCommands();
+    }
+
+    searchInput.addEventListener("input", (e) => {
+        currentSearch = e.target.value;
+        updateFilters();
+    });
+
+    categoryBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const cat = btn.getAttribute("data-cat");
+            currentCategory = cat;
+            categoryBtns.forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            updateFilters();
+        });
+    });
+
+    clearBtn.addEventListener("click", () => {
+        currentSearch = "";
+        currentCategory = "all";
+        searchInput.value = "";
+        categoryBtns.forEach(btn => {
+            if (btn.getAttribute("data-cat") === "all") btn.classList.add("active");
+            else btn.classList.remove("active");
+        });
+        updateFilters();
+    });
+
+    // 初始化渲染
+    renderCommands();
+
+    // 锚点平滑滚动  (附加体验)
+    document.querySelectorAll('.tips-badge a').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+            const hash = this.getAttribute('href');
+            if (hash && hash !== '#') {
+                e.preventDefault();
+                const target = document.querySelector(hash);
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    });
+</script>
+</body>
+</html>

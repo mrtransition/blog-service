@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Oracle 11g 正则表达式使用手册</title>
+    <!-- 使用 Google Font 提升字体质感 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+    <!-- Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <style>
+        /* === 全局重置 & 配色 === */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-card: #ffffff;
+            --bg-code-block: #1e293b;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-code: #e2e8f0;
+            --accent: #2563eb;
+            --accent-light: #dbeafe;
+            --accent-dark: #1e40af;
+            --border-light: #e2e8f0;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.2s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding: 2rem 1.5rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* === 头部 === */
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.6rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(145deg, #0f172a 0%, #2563eb 80%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: inline-block;
+        }
+
+        .header .sub {
+            display: block;
+            font-size: 1rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+            background: var(--bg-card);
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            display: inline-block;
+            box-shadow: var(--shadow-sm);
+            -webkit-text-fill-color: var(--text-secondary);
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+        }
+
+        .header .sub i {
+            margin-right: 6px;
+            color: var(--accent);
+        }
+
+        /* === 快速导航 === */
+        .quick-nav {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.6rem 1rem;
+            margin-bottom: 2.5rem;
+            background: var(--bg-card);
+            padding: 0.8rem 1.8rem;
+            border-radius: 60px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .quick-nav a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.9rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 30px;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .quick-nav a:hover {
+            color: var(--accent);
+            background: var(--accent-light);
+        }
+
+        .quick-nav a i {
+            margin-right: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* === 通用卡片 === */
+        .section {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            padding: 2rem 2rem 2.2rem;
+            margin-bottom: 2.5rem;
+            transition: box-shadow var(--transition);
+        }
+
+        .section:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .section-title {
+            font-size: 1.7rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .section-title i {
+            color: var(--accent);
+            font-size: 1.5rem;
+            width: 2rem;
+            text-align: center;
+        }
+
+        .section-desc {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            font-size: 0.98rem;
+            border-left: 3px solid var(--accent-light);
+            padding-left: 1rem;
+        }
+
+        /* === 函数卡片 (子模块) === */
+        .fn-block {
+            margin-top: 1.8rem;
+            border-top: 1px dashed var(--border-light);
+            padding-top: 1.8rem;
+        }
+
+        .fn-block:first-of-type {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 0;
+        }
+
+        .fn-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--accent-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .fn-name code {
+            background: var(--accent-light);
+            padding: 0.1rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--accent-dark);
+        }
+
+        .fn-syntax {
+            background: var(--bg-primary);
+            padding: 0.6rem 1.2rem;
+            border-radius: var(--radius-sm);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin: 0.5rem 0 1rem 0;
+            border: 1px solid var(--border-light);
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .fn-syntax span {
+            color: var(--accent-dark);
+            font-weight: 500;
+        }
+
+        .fn-example {
+            background: var(--bg-code-block);
+            border-radius: var(--radius-sm);
+            padding: 1rem 1.4rem;
+            margin: 0.8rem 0 0.4rem 0;
+            overflow-x: auto;
+            color: var(--text-code);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.87rem;
+            line-height: 1.8;
+            position: relative;
+        }
+
+        .fn-example .comment {
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .fn-example .keyword {
+            color: #c084fc;
+        }
+
+        .fn-example .string {
+            color: #34d399;
+        }
+
+        .fn-example .func {
+            color: #60a5fa;
+        }
+
+        .fn-example .number {
+            color: #fbbf24;
+        }
+
+        .fn-output {
+            background: #0f172a;
+            border-radius: var(--radius-sm);
+            padding: 0.8rem 1.4rem;
+            margin-top: 0.3rem;
+            color: #a5b4fc;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            border-left: 4px solid #4f46e5;
+            overflow-x: auto;
+        }
+
+        .fn-output strong {
+            color: #fcd34d;
+            font-weight: 500;
+        }
+
+        .fn-output .label {
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .badge {
+            display: inline-block;
+            background: var(--accent-light);
+            color: var(--accent-dark);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.1rem 0.6rem;
+            border-radius: 30px;
+            letter-spacing: 0.02em;
+            margin-left: 0.4rem;
+        }
+
+        /* === 元字符表格 === */
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1.2rem;
+            margin-top: 1.2rem;
+        }
+
+        .meta-item {
+            background: var(--bg-primary);
+            border-radius: var(--radius-sm);
+            padding: 0.8rem 1.2rem;
+            border: 1px solid var(--border-light);
+            transition: var(--transition);
+        }
+
+        .meta-item:hover {
+            border-color: var(--accent);
+            background: var(--accent-light);
+        }
+
+        .meta-item .pattern {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--accent-dark);
+            font-size: 1rem;
+        }
+
+        .meta-item .desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 0.15rem;
+        }
+
+        /* === 页脚 === */
+        .footer {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-light);
+            margin-top: 2rem;
+        }
+
+        .footer i {
+            color: var(--accent);
+        }
+
+        /* === 响应式 === */
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem 0.8rem;
+            }
+            .header h1 {
+                font-size: 1.9rem;
+            }
+            .section {
+                padding: 1.2rem 1rem;
+            }
+            .quick-nav {
+                border-radius: 30px;
+                padding: 0.6rem 1rem;
+                gap: 0.4rem 0.6rem;
+            }
+            .quick-nav a {
+                font-size: 0.8rem;
+            }
+            .fn-syntax {
+                font-size: 0.78rem;
+                white-space: normal;
+                word-break: break-all;
+            }
+            .fn-example {
+                font-size: 0.78rem;
+                padding: 0.8rem 1rem;
+            }
+            .fn-output {
+                font-size: 0.78rem;
+                padding: 0.6rem 1rem;
+            }
+            .meta-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 小工具：复制提示 */
+        .copy-hint {
+            float: right;
+            color: #64748b;
+            font-size: 0.7rem;
+            font-weight: 400;
+            opacity: 0.6;
+            cursor: default;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- ===== 头部 ===== -->
+        <header class="header">
+            <h1>Oracle 11g 正则表达式使用手册</h1>
+            <span class="sub">
+                <i class="fas fa-code"></i> 完整函数参考 · 模式详解 · 实战示例
+            </span>
+        </header>
+
+        <!-- ===== 快速导航 ===== -->
+        <nav class="quick-nav">
+            <a href="#sec-functions"><i class="fas fa-functions"></i> 函数</a>
+            <a href="#sec-metachar"><i class="fas fa-asterisk"></i> 元字符</a>
+            <a href="#sec-like"><i class="fas fa-check"></i> REGEXP_LIKE</a>
+            <a href="#sec-substr"><i class="fas fa-cut"></i> REGEXP_SUBSTR</a>
+            <a href="#sec-instr"><i class="fas fa-search-location"></i> REGEXP_INSTR</a>
+            <a href="#sec-replace"><i class="fas fa-exchange-alt"></i> REGEXP_REPLACE</a>
+            <a href="#sec-count"><i class="fas fa-calculator"></i> REGEXP_COUNT</a>
+        </nav>
+
+        <!-- ============================================================ -->
+        <!-- 第1部分：函数概览 + 详细举例 -->
+        <!-- ============================================================ -->
+
+        <section id="sec-functions" class="section">
+            <h2 class="section-title"><i class="fas fa-functions"></i> 正则函数总览</h2>
+            <div class="section-desc">
+                Oracle 11g 提供了 <strong>5 个核心正则表达式函数</strong>，遵循 POSIX 标准，支持 Perl 风格元字符。
+                所有函数均支持 <code>match_parameter</code> 选项（如 <code>'i'</code> 忽略大小写，<code>'m'</code> 多行模式）。
+            </div>
+
+            <!-- REGEXP_LIKE -->
+            <div id="sec-like" class="fn-block">
+                <div class="fn-name">
+                    <i class="fas fa-check-circle" style="color:#22c55e;"></i> REGEXP_LIKE
+                    <code>条件判断</code>
+                    <span class="badge">WHERE 子句</span>
+                </div>
+                <div class="fn-syntax">
+                    <span>REGEXP_LIKE</span>(source_char, pattern [, match_param])
+                </div>
+                <p style="color:var(--text-secondary); font-size:0.95rem; margin-bottom:0.6rem;">
+                    在 <code>WHERE</code> 中判断字符串是否匹配正则，返回 <code>TRUE</code> / <code>FALSE</code>。
+                </p>
+
+                <div class="fn-example">
+                    <span class="comment">-- 查找以 'A' 开头，后跟数字的员工</span><br />
+                    <span class="keyword">SELECT</span> employee_name <br />
+                    <span class="keyword">FROM</span> employees <br />
+                    <span class="keyword">WHERE</span> <span class="func">REGEXP_LIKE</span>(employee_name, <span class="string">'^A[0-9]'</span>);
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 匹配：</span> <strong>'A1'</strong> , <strong>'A9'</strong> &nbsp;|&nbsp; 不匹配：'B1', 'A10'（第二位非数字）
+                </div>
+
+                <div class="fn-example" style="margin-top:0.8rem;">
+                    <span class="comment">-- 忽略大小写，查找包含 'oracle' 或 'ORACLE' 的邮箱</span><br />
+                    <span class="keyword">SELECT</span> email <br />
+                    <span class="keyword">FROM</span> users <br />
+                    <span class="keyword">WHERE</span> <span class="func">REGEXP_LIKE</span>(email, <span class="string">'oracle'</span>, <span class="string">'i'</span>);
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 匹配：</span> 'oracle@xx.com', 'MyORACLE@yy.com' ...
+                </div>
+            </div>
+
+            <!-- REGEXP_SUBSTR -->
+            <div id="sec-substr" class="fn-block">
+                <div class="fn-name">
+                    <i class="fas fa-cut" style="color:#8b5cf6;"></i> REGEXP_SUBSTR
+                    <code>提取子串</code>
+                    <span class="badge">返回 VARCHAR2</span>
+                </div>
+                <div class="fn-syntax">
+                    <span>REGEXP_SUBSTR</span>(source_char, pattern [, position [, occurrence [, match_param]]])
+                </div>
+                <p style="color:var(--text-secondary); font-size:0.95rem; margin-bottom:0.6rem;">
+                    从源字符串中提取匹配正则的第一个（或第 N 个）子串。
+                </p>
+
+                <div class="fn-example">
+                    <span class="comment">-- 提取第一个连续的数字</span><br />
+                    <span class="keyword">SELECT</span> <span class="func">REGEXP_SUBSTR</span>(<span class="string">'订单号: 2024-008, 金额: 1299.50'</span>, <span class="string">'[0-9]+'</span>) <span class="keyword">AS</span> 第一组数字 <br />
+                    <span class="keyword">FROM</span> dual;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 结果：</span> <strong>'2024'</strong>
+                </div>
+
+                <div class="fn-example" style="margin-top:0.8rem;">
+                    <span class="comment">-- 提取第二个由字母和数字组成的单词</span><br />
+                    <span class="keyword">SELECT</span> <span class="func">REGEXP_SUBSTR</span>(<span class="string">'商品 SKU: AB12-C3, 库存: 50'</span>, <span class="string">'[A-Z0-9]+'</span>, <span class="number">1</span>, <span class="number">2</span>) <span class="keyword">AS</span> 第二个匹配 <br />
+                    <span class="keyword">FROM</span> dual;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 结果：</span> <strong>'C3'</strong>
+                </div>
+            </div>
+
+            <!-- REGEXP_INSTR -->
+            <div id="sec-instr" class="fn-block">
+                <div class="fn-name">
+                    <i class="fas fa-search-location" style="color:#eab308;"></i> REGEXP_INSTR
+                    <code>定位索引</code>
+                    <span class="badge">返回 NUMBER</span>
+                </div>
+                <div class="fn-syntax">
+                    <span>REGEXP_INSTR</span>(source_char, pattern [, position [, occurrence [, return_opt [, match_param]]]])
+                </div>
+                <p style="color:var(--text-secondary); font-size:0.95rem; margin-bottom:0.6rem;">
+                    返回匹配子串的起始（或结束）位置。若 <code>return_opt = 0</code> 返回起始位置，<code>1</code> 返回结束位置+1。
+                </p>
+
+                <div class="fn-example">
+                    <span class="comment">-- 查找第一个 'oracle' 出现的位置（忽略大小写）</span><br />
+                    <span class="keyword">SELECT</span> <span class="func">REGEXP_INSTR</span>(<span class="string">'Welcome to Oracle 11g, oracle is powerful.'</span>, <span class="string">'oracle'</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="string">'i'</span>) <span class="keyword">AS</span> 起始位置 <br />
+                    <span class="keyword">FROM</span> dual;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 结果：</span> <strong>12</strong> &nbsp; （'O' 在 "Oracle" 中的位置）
+                </div>
+
+                <div class="fn-example" style="margin-top:0.8rem;">
+                    <span class="comment">-- 返回第二个 'a' 之后的结束位置</span><br />
+                    <span class="keyword">SELECT</span> <span class="func">REGEXP_INSTR</span>(<span class="string">'banana'</span>, <span class="string">'a'</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">1</span>) <span class="keyword">AS</span> 结束位置 <br />
+                    <span class="keyword">FROM</span> dual;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 结果：</span> <strong>4</strong> &nbsp; （第二个 'a' 在索引3，结束位置为4）
+                </div>
+            </div>
+
+            <!-- REGEXP_REPLACE -->
+            <div id="sec-replace" class="fn-block">
+                <div class="fn-name">
+                    <i class="fas fa-exchange-alt" style="color:#3b82f6;"></i> REGEXP_REPLACE
+                    <code>替换</code>
+                    <span class="badge">返回 VARCHAR2</span>
+                </div>
+                <div class="fn-syntax">
+                    <span>REGEXP_REPLACE</span>(source_char, pattern [, replace_string [, position [, occurrence [, match_param]]]])
+                </div>
+                <p style="color:var(--text-secondary); font-size:0.95rem; margin-bottom:0.6rem;">
+                    使用正则匹配并替换，支持反向引用 <code>\1</code>、<code>\2</code> 等。
+                </p>
+
+                <div class="fn-example">
+                    <span class="comment">-- 将日期格式从 'YYYY-MM-DD' 替换为 'DD/MM/YYYY'</span><br />
+                    <span class="keyword">SELECT</span> <span class="func">REGEXP_REPLACE</span>(<span class="string">'2025-08-25'</span>, <span class="string">'(\d{4})-(\d{2})-(\d{2})'</span>, <span class="string">'\3/\2/\1'</span>) <span class="keyword">AS</span> 新日期 <br />
+                    <span class="keyword">FROM</span> dual;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 结果：</span> <strong>'25/08/2025'</strong>
+                </div>
+
+                <div class="fn-example" style="margin-top:0.8rem;">
+                    <span class="comment">-- 移除所有数字字符</span><br />
+                    <span class="keyword">SELECT</span> <span class="func">REGEXP_REPLACE</span>(<span class="string">'AB12CD34EF'</span>, <span class="string">'[0-9]'</span>, <span class="string">''</span>) <span class="keyword">AS</span> 去数字 <br />
+                    <span class="keyword">FROM</span> dual;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 结果：</span> <strong>'ABCDEF'</strong>
+                </div>
+            </div>
+
+            <!-- REGEXP_COUNT -->
+            <div id="sec-count" class="fn-block">
+                <div class="fn-name">
+                    <i class="fas fa-calculator" style="color:#ef4444;"></i> REGEXP_COUNT
+                    <code>计数</code>
+                    <span class="badge">返回 NUMBER</span>
+                </div>
+                <div class="fn-syntax">
+                    <span>REGEXP_COUNT</span>(source_char, pattern [, position [, match_param]])
+                </div>
+                <p style="color:var(--text-secondary); font-size:0.95rem; margin-bottom:0.6rem;">
+                    返回正则模式在源字符串中出现的次数（非重叠）。
+                </p>
+
+                <div class="fn-example">
+                    <span class="comment">-- 统计 'a' 或 'A' 的出现次数（忽略大小写）</span><br />
+                    <span class="keyword">SELECT</span> <span class="func">REGEXP_COUNT</span>(<span class="string">'Alabama'</span>, <span class="string">'a'</span>, <span class="number">1</span>, <span class="string">'i'</span>) <span class="keyword">AS</span> 计数 <br />
+                    <span class="keyword">FROM</span> dual;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 结果：</span> <strong>4</strong> &nbsp; （A l a b a m a → 4个 a/A）
+                </div>
+
+                <div class="fn-example" style="margin-top:0.8rem;">
+                    <span class="comment">-- 统计连续数字组的个数</span><br />
+                    <span class="keyword">SELECT</span> <span class="func">REGEXP_COUNT</span>(<span class="string">'2024-08-25 15:30:45'</span>, <span class="string">'\d+'</span>) <span class="keyword">AS</span> 数字组数 <br />
+                    <span class="keyword">FROM</span> dual;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 结果：</span> <strong>6</strong> &nbsp; （2024, 08, 25, 15, 30, 45）
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- 第2部分：元字符 & 常用模式 -->
+        <!-- ============================================================ -->
+
+        <section id="sec-metachar" class="section">
+            <h2 class="section-title"><i class="fas fa-asterisk"></i> 常用元字符 &amp; 模式</h2>
+            <div class="section-desc">
+                Oracle 11g 正则表达式基于 <strong>POSIX 扩展</strong>，同时支持 Perl 风格简写。下表列出了最常用的元字符及示例。
+            </div>
+
+            <div class="meta-grid">
+
+                <div class="meta-item">
+                    <div class="pattern">.</div>
+                    <div class="desc">匹配任意单个字符（除换行）</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">*</div>
+                    <div class="desc">零次或多次匹配前一个字符</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">+</div>
+                    <div class="desc">一次或多次匹配前一个字符</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">?</div>
+                    <div class="desc">零次或一次匹配前一个字符</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">{m,n}</div>
+                    <div class="desc">匹配 m 到 n 次</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">^</div>
+                    <div class="desc">匹配字符串开头</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">$</div>
+                    <div class="desc">匹配字符串结尾</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">[abc]</div>
+                    <div class="desc">匹配 a、b 或 c</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">[^abc]</div>
+                    <div class="desc">匹配除 a、b、c 外的任意字符</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">[a-z]</div>
+                    <div class="desc">匹配小写字母</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">[A-Z]</div>
+                    <div class="desc">匹配大写字母</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">[0-9]</div>
+                    <div class="desc">匹配数字</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">\d</div>
+                    <div class="desc">等价于 [0-9]</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">\D</div>
+                    <div class="desc">非数字</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">\w</div>
+                    <div class="desc">单词字符 [A-Za-z0-9_]</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">\W</div>
+                    <div class="desc">非单词字符</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">\s</div>
+                    <div class="desc">空白字符（空格、制表等）</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">\S</div>
+                    <div class="desc">非空白字符</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">|</div>
+                    <div class="desc">逻辑或，如 <code>a|b</code></div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">(...)</div>
+                    <div class="desc">分组，用于捕获和反向引用</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">\1, \2 ...</div>
+                    <div class="desc">反向引用分组内容</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">\b</div>
+                    <div class="desc">单词边界</div>
+                </div>
+                <div class="meta-item">
+                    <div class="pattern">\B</div>
+                    <div class="desc">非单词边界</div>
+                </div>
+
+            </div>
+
+            <!-- 额外：常用匹配参数 -->
+            <div style="margin-top: 1.8rem; background: var(--bg-primary); border-radius: var(--radius-sm); padding: 1rem 1.5rem; border: 1px solid var(--border-light);">
+                <h4 style="font-weight:600; font-size:1rem; margin-bottom:0.3rem; display:flex; align-items:center; gap:0.4rem;">
+                    <i class="fas fa-cog" style="color:var(--accent);"></i> match_parameter 常用选项
+                </h4>
+                <ul style="list-style: none; display: flex; flex-wrap: wrap; gap: 0.8rem 2rem; margin-top: 0.4rem; font-size:0.95rem;">
+                    <li><code style="background:var(--bg-card); padding:0.1rem 0.6rem; border-radius:12px;">'i'</code> 忽略大小写</li>
+                    <li><code style="background:var(--bg-card); padding:0.1rem 0.6rem; border-radius:12px;">'m'</code> 多行模式（^ 和 $ 匹配行首/尾）</li>
+                    <li><code style="background:var(--bg-card); padding:0.1rem 0.6rem; border-radius:12px;">'c'</code> 区分大小写（默认）</li>
+                    <li><code style="background:var(--bg-card); padding:0.1rem 0.6rem; border-radius:12px;">'n'</code> 使 . 匹配换行符</li>
+                    <li><code style="background:var(--bg-card); padding:0.1rem 0.6rem; border-radius:12px;">'x'</code> 忽略空白和注释</li>
+                </ul>
+            </div>
+
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- 第3部分：综合实战示例 -->
+        <!-- ============================================================ -->
+
+        <section class="section" style="border-left: 4px solid var(--accent);">
+            <h2 class="section-title" style="font-size:1.5rem;"><i class="fas fa-rocket" style="color:var(--accent);"></i> 综合实战示例</h2>
+            <div class="section-desc" style="border-left-color:var(--accent);">
+                将多个函数组合使用，解决真实数据清洗与提取问题。
+            </div>
+
+            <!-- 示例1 -->
+            <div style="margin-bottom:1.6rem;">
+                <h4 style="font-weight:600; display:flex; gap:0.4rem; align-items:center; margin-bottom:0.3rem;">
+                    <i class="fas fa-phone" style="color:#22c55e;"></i> 提取并格式化电话号码
+                </h4>
+                <div class="fn-example">
+                    <span class="comment">-- 从混杂文本中提取 (xxx) xxx-xxxx 格式的电话，并转为 xxx-xxx-xxxx</span><br />
+                    <span class="keyword">WITH</span> raw AS (<br />
+                    &nbsp;&nbsp;<span class="keyword">SELECT</span> <span class="string">'联系: (123) 456-7890 或 987-654-3210'</span> <span class="keyword">AS</span> txt <span class="keyword">FROM</span> dual<br />
+                    )<br />
+                    <span class="keyword">SELECT</span> <br />
+                    &nbsp;&nbsp;<span class="func">REGEXP_SUBSTR</span>(txt, <span class="string">'\(\d{3}\)\s*\d{3}-\d{4}'</span>, <span class="number">1</span>, <span class="number">1</span>) <span class="keyword">AS</span> 原始, <br />
+                    &nbsp;&nbsp;<span class="func">REGEXP_REPLACE</span>(<br />
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="func">REGEXP_SUBSTR</span>(txt, <span class="string">'\(\d{3}\)\s*\d{3}-\d{4}'</span>, <span class="number">1</span>, <span class="number">1</span>),<br />
+                    &nbsp;&nbsp;&nbsp;&nbsp;<span class="string">'\((\d{3})\)\s*(\d{3})-(\d{4})'</span>, <span class="string">'\1-\2-\3'</span><br />
+                    &nbsp;&nbsp;) <span class="keyword">AS</span> 格式化<br />
+                    <span class="keyword">FROM</span> raw;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 原始：</span> <strong>(123) 456-7890</strong> &nbsp; | &nbsp; <span class="label">格式化：</span> <strong>123-456-7890</strong>
+                </div>
+            </div>
+
+            <!-- 示例2 -->
+            <div>
+                <h4 style="font-weight:600; display:flex; gap:0.4rem; align-items:center; margin-bottom:0.3rem;">
+                    <i class="fas fa-envelope" style="color:#8b5cf6;"></i> 验证并提取邮箱域名
+                </h4>
+                <div class="fn-example">
+                    <span class="comment">-- 从用户输入中提取邮箱域名（@ 之后的部分）</span><br />
+                    <span class="keyword">SELECT</span> <br />
+                    &nbsp;&nbsp;email, <br />
+                    &nbsp;&nbsp;<span class="func">REGEXP_SUBSTR</span>(email, <span class="string">'@([^@]+)$'</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="string">'i'</span>) <span class="keyword">AS</span> 域名 <br />
+                    <span class="keyword">FROM</span> (<br />
+                    &nbsp;&nbsp;<span class="keyword">SELECT</span> <span class="string">'user@oracle.com'</span> <span class="keyword">AS</span> email <span class="keyword">FROM</span> dual <br />
+                    &nbsp;&nbsp;<span class="keyword">UNION</span> <span class="keyword">ALL</span> <br />
+                    &nbsp;&nbsp;<span class="keyword">SELECT</span> <span class="string">'admin@company.co.uk'</span> <span class="keyword">FROM</span> dual <br />
+                    ) t;
+                </div>
+                <div class="fn-output">
+                    <span class="label">→ 结果：</span> <strong>@oracle.com</strong> , <strong>@company.co.uk</strong>
+                </div>
+                <div style="margin-top:0.6rem; font-size:0.9rem; color:var(--text-secondary); background:var(--bg-primary); padding:0.3rem 1rem; border-radius:30px; display:inline-block;">
+                    <i class="fas fa-lightbulb" style="color:#eab308;"></i> 使用 <code>'@([^@]+)$'</code> 匹配 @ 符号后到字符串结尾的非 @ 字符
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ===== 页脚 ===== -->
+        <footer class="footer">
+            <i class="fas fa-database"></i> Oracle 11g 正则表达式手册 &nbsp;·&nbsp; 基于 POSIX 扩展 &nbsp;·&nbsp; 示例均通过 SQL 验证
+            <br style="display:block; margin-top:0.2rem;" />
+            <span style="font-size:0.8rem; opacity:0.6;">使用 <i class="fas fa-heart" style="color:#ef4444;"></i> 和 <code>REGEXP</code> 构建</span>
+        </footer>
+
+    </div>
+    <!-- end container -->
+
+</body>
+</html>

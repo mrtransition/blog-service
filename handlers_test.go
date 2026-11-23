@@ -96,6 +96,48 @@ func TestEtagMatches(t *testing.T) {
 	}
 }
 
+func TestFrontendVendorAssets(t *testing.T) {
+	app, _ := newTestApp(t)
+
+	index := serve(t, app, http.MethodGet, "/", nil)
+	if index.Code != http.StatusOK {
+		t.Fatalf("index status = %d", index.Code)
+	}
+	body := index.Body.String()
+	if strings.Contains(body, "cdn.jsdelivr.net") {
+		t.Fatal("index.html 仍引用外部 CDN")
+	}
+	for _, asset := range []string{"/vendor/marked.umd.js", "/vendor/purify.min.js", "/vendor/highlight.min.js"} {
+		if !strings.Contains(body, asset) {
+			t.Errorf("index.html 缺少本地资源引用 %s", asset)
+		}
+	}
+
+	cases := []struct {
+		path        string
+		contentType string
+	}{
+		{"/vendor/marked.umd.js", "javascript"},
+		{"/vendor/purify.min.js", "javascript"},
+		{"/vendor/highlight.min.js", "javascript"},
+		{"/vendor/github.min.css", "text/css"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			rr := serve(t, app, http.MethodGet, tc.path, nil)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rr.Code)
+			}
+			if ct := rr.Header().Get("Content-Type"); !strings.Contains(ct, tc.contentType) {
+				t.Fatalf("Content-Type = %q, want contains %q", ct, tc.contentType)
+			}
+			if rr.Body.Len() == 0 {
+				t.Fatal("资源内容为空")
+			}
+		})
+	}
+}
+
 func TestAPIFile(t *testing.T) {
 	app, root := newTestApp(t)
 	writeTestFile(t, root, "技术类/文章.md", "# 标题\n\n正文")

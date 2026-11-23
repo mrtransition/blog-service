@@ -17,6 +17,7 @@
 - 启动日志在非回环监听、未配置密钥/认证时给出明确警告
 
 ### 修复
+- 前端依赖改为本地嵌入（marked 18.2.1 / DOMPurify 3.5.0 / highlight.js 11.9.0），修复 CDN 不可达时 Markdown 退化为源码的问题
 - Markdown 正文渲染前剥离文件头部的 YAML frontmatter，避免 `---` 元数据块重复显示；标题/日期/草稿标记仍由服务端解析
 - 清洗库不可用时，降级文本同样不再包含 frontmatter
 
