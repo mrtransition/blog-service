@@ -1,0 +1,286 @@
+以下为机器可读的计划（JSON），字段含义固定：`id/phase/priority/type/title/action/acceptance/dependencies/trigger_condition/status`。可直接被任务编排类 AI 工具解析。
+
+```json
+{
+  "schema_version": "1.0",
+  "project": "mrtransition/blog-service",
+  "plan_type": "modification_plan",
+  "global_acceptance": [
+    "go vet 通过",
+    "新增表驱动测试通过",
+    "端到端流程通过：新建文章->出现在导航->可访问->feed出现->改为草稿->从导航消失"
+  ],
+  "phases": [
+    {
+      "id": "phase_0",
+      "name": "前置核实",
+      "blocking": true,
+      "tasks": [
+        {
+          "id": "0.1",
+          "phase": "phase_0",
+          "priority": "P0",
+          "type": "audit",
+          "title": "核实路径解析实现",
+          "action": "阅读 main.go 及所有文件读取函数，确认 -dir 拼接路径后是否做根目录限定；记录当前校验手段：filepath.Clean/前缀比较/无校验；列出所有用户可控路径入口与已防护/裸奔状态",
+          "acceptance": [
+            "产出一页现状记录",
+            "明确哪些入口可控、哪些已防护、哪些未防护"
+          ],
+          "dependencies": [],
+          "status": "done"
+        },
+        {
+          "id": "0.2",
+          "phase": "phase_0",
+          "priority": "P0",
+          "type": "audit",
+          "title": "核实静态资源服务方式",
+          "action": "确认 public/index.html 是否通过 go:embed 嵌入；确认静态路由使用 http.FileServer 还是自定义 handler；确认是否已设置 ETag/Cache-Control",
+          "acceptance": [
+            "记录当前缓存头行为",
+            "判定 embed.FS 的 ModTime 为零问题是否存在"
+          ],
+          "dependencies": [],
+          "status": "done"
+        },
+        {
+          "id": "0.3",
+          "phase": "phase_0",
+          "priority": "P0",
+          "type": "audit",
+          "title": "确认 Go 版本",
+          "action": "查看 go.mod 的 go 指令，判断能否使用 os.Root（需 Go 1.24+）",
+          "acceptance": [
+            "确定路径防护方案选型：os.Root 或 filepath.IsLocal 回退方案"
+          ],
+          "dependencies": [],
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "phase_1",
+      "name": "P0 正确性与安全修复",
+      "blocking": true,
+      "tasks": [
+        {
+          "id": "P0-1",
+          "phase": "phase_1",
+          "priority": "P0",
+          "type": "security",
+          "title": "路径遍历防护",
+          "action": "若 Go>=1.24：将所有基于 -dir 的文件读取改为 os.OpenRoot(dir) 返回的 *os.Root 上的 Open/Stat/ReadDir；若 Go<1.24：对每个用户可控路径段使用 filepath.IsLocal 校验，拼接后确认解析结果位于根目录内，并在注释中注明 EvalSymlinks+Open 的 TOCTOU 残余风险；逐一检查所有接收路径参数的 HTTP handler 与模板渲染入口，确保无旁路",
+          "acceptance": [
+            "GET /../etc/passwd 返回 4xx 而非文件内容",
+            "GET /%2e%2e/%2e%2e/etc/passwd 返回 4xx",
+            "符号链接指向根目录外文件时返回 4xx",
+            "合法请求 blog-files/技术类/xxx.md 行为不变",
+            "新增表驱动测试覆盖上述逃逸用例"
+          ],
+          "dependencies": ["0.1", "0.3"],
+          "status": "done"
+        },
+        {
+          "id": "P0-2",
+          "phase": "phase_1",
+          "priority": "P0",
+          "type": "correctness",
+          "title": "embed.FS 缓存头修复",
+          "action": "若静态资源通过 go:embed 服务：启动时对嵌入资源计算内容哈希（如 SHA-256 前 16 字节 hex），构造 ETag 并在 handler 中处理 If-None-Match 返回 304；设置 Cache-Control: no-cache；不要对无内容哈希文件名的资源使用 immutable；未来带哈希文件名的构建产物才用 max-age=31536000, immutable",
+          "acceptance": [
+            "curl -I 首次请求返回 ETag",
+            "带 If-None-Match 二次请求返回 304",
+            "替换二进制后同一 URL 的 ETag 变化，浏览器能拿到新内容",
+            "不引入运行时压缩或外部构建依赖"
+          ],
+          "dependencies": ["0.2"],
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "phase_2",
+      "name": "P1 功能增量",
+      "blocking": false,
+      "tasks": [
+        {
+          "id": "P1-1",
+          "phase": "phase_2",
+          "priority": "P1",
+          "type": "feature",
+          "title": "草稿支持",
+          "action": "约定文件名以 _ 前缀开头（如 _draft-xxx.md）或在 Frontmatter 写 draft: true，二选一，优先文件名前缀；在目录扫描、导航生成、列表页三处统一过滤草稿；草稿文件仍可通过其 URL 直接访问以便预览，但不进入导航与列表；README 补一行说明",
+          "acceptance": [
+            "新建 _draft-test.md 后导航不出现",
+            "直接访问草稿 URL 可见内容",
+            "重命名为正常文件后导航出现"
+          ],
+          "dependencies": ["P0-1"],
+          "status": "done"
+        },
+        {
+          "id": "P1-2",
+          "phase": "phase_2",
+          "priority": "P1",
+          "type": "feature",
+          "title": "RSS/Atom 订阅",
+          "action": "新增 /feed.xml 路由，遍历非草稿文章，提取标题、日期、链接、摘要，生成 RSS 2.0（可选 Atom）；使用 gorilla/feeds 或手写 XML 模板；日期优先 Frontmatter，缺失回退文件 mtime；在 index.html 头部加 link rel=alternate type=application/rss+xml href=/feed.xml",
+          "acceptance": [
+            "/feed.xml 通过 W3C Feed 校验器",
+            "新文章发布后 feed 中出现",
+            "草稿不出现"
+          ],
+          "dependencies": ["P1-1"],
+          "status": "done"
+        },
+        {
+          "id": "P1-3",
+          "phase": "phase_2",
+          "priority": "P1",
+          "type": "performance",
+          "title": "元信息快照缓存",
+          "action": "启动时一次性 WalkDir 扫描 blog-files/，对每个文件记录 {path, mtime, title, category, isDraft} 存入内存结构（sync.RWMutex 保护或不可变快照+原子替换）；导航生成、列表页、feed 生成改为读快照；不引入 fsnotify；提供仅回环可访问的 /reload 端点或说明重启服务；若后续引入 fsnotify，优雅关闭必须同 PR 完成",
+          "acceptance": [
+            "文章数 500 篇时列表页响应时间与 50 篇时同量级",
+            "/reload 后新文章出现在导航",
+            "无 watcher 泄漏（本阶段不引入 watcher），无 goroutine 泄漏"
+          ],
+          "dependencies": ["P0-1"],
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "phase_3",
+      "name": "P2 加固与体验",
+      "blocking": false,
+      "tasks": [
+        {
+          "id": "P2-1",
+          "phase": "phase_3",
+          "priority": "P2",
+          "type": "security",
+          "title": "XSS 清理",
+          "action": "在 Markdown->HTML 渲染后、template.HTML 封装前接入 bluemonday，用 SanitizeBytes 再转 string；纯 Markdown 路径保持默认转义",
+          "acceptance": [
+            "含 script/事件属性/javascript: URL 的文章渲染后被剥离或转义",
+            "正常 Markdown 渲染不变"
+          ],
+          "dependencies": [],
+          "trigger_condition": "项目开始接受非作者本人写入的内容，或部署到公网多用户场景",
+          "status": "done"
+        },
+        {
+          "id": "P2-2",
+          "phase": "phase_3",
+          "priority": "P2",
+          "type": "feature",
+          "title": "深色模式",
+          "action": "基于 prefers-color-scheme 的 CSS 变量，用户手动切换存 localStorage；纯前端，不改 Go 代码",
+          "acceptance": [
+            "系统深色偏好下默认深色",
+            "手动切换后刷新仍保持选择"
+          ],
+          "dependencies": [],
+          "trigger_condition": "随时可做",
+          "status": "done"
+        },
+        {
+          "id": "P2-3",
+          "phase": "phase_3",
+          "priority": "P2",
+          "type": "seo",
+          "title": "SEO 标签",
+          "action": "文章页模板注入 og:title/description、link rel=canonical；新增 /sitemap.xml 路由，复用快照遍历",
+          "acceptance": [
+            "文章页包含 og 标签与 canonical",
+            "/sitemap.xml 可访问且包含非草稿文章"
+          ],
+          "dependencies": ["P1-3"],
+          "trigger_condition": "用户有公网部署需求时",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "phase_4",
+      "name": "P3 扩展",
+      "blocking": false,
+      "tasks": [
+        {
+          "id": "P3-1",
+          "phase": "phase_4",
+          "priority": "P3",
+          "type": "feature",
+          "title": "Webhook 重建触发",
+          "action": "端点默认仅绑定 127.0.0.1；若允许绑定 0.0.0.0，必须同 PR 加入共享密钥鉴权并拒绝无密钥请求，不允许先上功能后补认证",
+          "acceptance": [
+            "默认仅回环可访问",
+            "绑定非回环时无密钥请求被拒绝"
+          ],
+          "dependencies": [],
+          "trigger_condition": "确有外部部署流水线触发需求时",
+          "status": "done"
+        },
+        {
+          "id": "P3-2",
+          "phase": "phase_4",
+          "priority": "P3",
+          "type": "security",
+          "title": "可选 Basic Auth",
+          "action": "仅在绑定非回环地址时启用；README 注明 HTTP 明文下凭据可被嗅探，敏感场景需配 TLS",
+          "acceptance": [
+            "默认关闭",
+            "启用后未认证请求返回 401",
+            "README 含明文传输风险提示"
+          ],
+          "dependencies": [],
+          "trigger_condition": "需要在内网小范围分享时",
+          "status": "done"
+        }
+      ]
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "EX-1",
+      "item": "全文搜索（Bleve / SQLite FTS）",
+      "reason": "个人博客规模下 WalkDir + strings.Contains 足够；引入索引带来体积、启动时间与一致性负担",
+      "revisit_condition": "文章数破千且出现复杂查询需求时作为独立设计议题重新评估"
+    },
+    {
+      "id": "EX-2",
+      "item": "Frontmatter 标签系统",
+      "reason": "blog-files/ 下目录名即分类，导航自动生成，已是最轻量方案；引入标签会破坏“目录即结构”的心智模型",
+      "revisit_condition": "无"
+    },
+    {
+      "id": "EX-3",
+      "item": "增量构建",
+      "reason": "变更传播（列表页/导航/feed/上下篇级联更新）在无渲染管线抽象时易引入一致性 bug；元信息快照已解决可感知瓶颈",
+      "revisit_condition": "先设计依赖图后再评估完整增量渲染"
+    },
+    {
+      "id": "EX-4",
+      "item": "评论系统 / 多用户 / 数据库后台",
+      "reason": "与单二进制零依赖定位冲突",
+      "revisit_condition": "无"
+    }
+  ],
+  "execution_order": [
+    "phase_0",
+    "P0-1",
+    "P0-2",
+    "P1-1",
+    "P1-2",
+    "P1-3",
+    "phase_3",
+    "phase_4"
+  ],
+  "rollback_policy": {
+    "P0-1": "若 os.Root 在 Windows 出现目录重命名/删除被阻塞，回退到 filepath.IsLocal + 前缀校验，并在 CI 加 Windows 逃逸用例",
+    "P1-3": "若快照缓存出现刷新不一致，改回每次扫描；性能回退可接受，正确性优先"
+  }
+}
+```

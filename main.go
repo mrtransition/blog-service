@@ -1,15 +1,23 @@
 package main
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 //go:embed public/index.html
@@ -17,16 +25,24 @@ var frontend embed.FS
 
 // 配置结构
 type Config struct {
-	Port     int    `json:"port"`
-	BlogDir  string `json:"blogDir"`
-	BlogName string `json:"blogName"` // 新增
+	Port        int    `json:"port"`
+	Bind        string `json:"bind"` // 监听地址，默认仅本机 127.0.0.1
+	BlogDir     string `json:"blogDir"`
+	BlogName    string `json:"blogName"`
+	ReloadToken string `json:"reloadToken"` // 非本机调用 /reload 时使用的共享密钥
+	AuthUser    string `json:"authUser"`    // 绑定非回环地址时启用的 Basic Auth 用户名
+	AuthPass    string `json:"authPass"`    // Basic Auth 密码（明文传输，建议配合 HTTPS 反向代理）
 }
 
 var (
-	config     Config
-	configFile = flag.String("config", "config.json", "配置文件路径")
-	port       = flag.Int("port", 0, "服务端口（覆盖配置文件）")
-	blogDir    = flag.String("dir", "", "博客文件根目录（覆盖配置文件）")
+	config      Config
+	configFile  = flag.String("config", "config.json", "配置文件路径")
+	port        = flag.Int("port", 0, "服务端口（覆盖配置文件）")
+	bind        = flag.String("bind", "", "监听地址（覆盖配置文件，默认 127.0.0.1）")
+	blogDir     = flag.String("dir", "", "博客文件根目录（覆盖配置文件）")
+	reloadToken = flag.String("reload-token", "", "非本机调用 /reload 的共享密钥（覆盖配置文件）")
+	authUser    = flag.String("auth-user", "", "Basic Auth 用户名（覆盖配置文件）")
+	authPass    = flag.String("auth-pass", "", "Basic Auth 密码（覆盖配置文件）")
 )
 
 // 目录树节点
@@ -37,6 +53,15 @@ type TreeNode struct {
 	DirPath  string      `json:"dirPath,omitempty"`
 	FileType string      `json:"fileType,omitempty"`
 	Children []*TreeNode `json:"children,omitempty"`
+}
+
+// App 持有服务运行期的只读状态；元信息快照通过原子替换更新。
+type App struct {
+	root      string
+	cfg       Config
+	snapshot  atomic.Pointer[Snapshot]
+	indexHTML []byte
+	indexETag string
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -55,104 +80,271 @@ func main() {
 	if *port != 0 {
 		config.Port = *port
 	}
+	if *bind != "" {
+		config.Bind = *bind
+	}
 	if *blogDir != "" {
 		config.BlogDir = *blogDir
+	}
+	if *reloadToken != "" {
+		config.ReloadToken = *reloadToken
+	}
+	if *authUser != "" {
+		config.AuthUser = *authUser
+	}
+	if *authPass != "" {
+		config.AuthPass = *authPass
+	}
+	if strings.TrimSpace(config.Bind) == "" {
+		config.Bind = "127.0.0.1"
+	}
+	if config.BlogDir == "" {
+		config.BlogDir = "blog-files"
+	}
+	if config.BlogName == "" {
+		config.BlogName = "轻舟博客"
 	}
 
 	initBlogDir()
 
-	absBlogDir, err := filepath.Abs(config.BlogDir)
+	app, err := newApp(config.BlogDir, config)
 	if err != nil {
-		log.Fatalf("无法解析博客目录: %v", err)
+		log.Fatalf("初始化失败: %v", err)
 	}
 
-	mux := http.NewServeMux()
-
-	// 博客静态文件
-	blogFileServer := http.FileServer(http.Dir(absBlogDir))
-	mux.Handle("/blog-files/", http.StripPrefix("/blog-files/", blogFileServer))
-
-	// API：获取配置（新增）
-	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]string{
-			"blogName": config.BlogName,
-			"rootDir":  absBlogDir,
-		})
-	})
-
-	// API：获取目录树
-	mux.HandleFunc("/api/tree", func(w http.ResponseWriter, r *http.Request) {
-		tree := buildTree(absBlogDir, "")
-		resp := map[string]interface{}{
-			"rootDir":  absBlogDir,
-			"children": tree,
+	addr := net.JoinHostPort(config.Bind, strconv.Itoa(config.Port))
+	log.Printf("🚀 %s 已启动: http://%s", config.BlogName, addr)
+	log.Printf("📂 博客目录: %s", app.root)
+	if !isLoopbackBind(config.Bind) {
+		log.Printf("⚠️ 当前监听非回环地址 %s，局域网/公网均可访问", config.Bind)
+		if config.ReloadToken == "" {
+			log.Printf("⚠️ 未配置 reloadToken，外部请求无法触发 /reload")
 		}
-		writeJSON(w, resp)
-	})
-
-	// API：获取文件内容
-	mux.HandleFunc("/api/file", func(w http.ResponseWriter, r *http.Request) {
-		filePath := r.URL.Query().Get("path")
-		if filePath == "" {
-			http.Error(w, `{"error":"缺少 path 参数"}`, http.StatusBadRequest)
-			return
+		if config.AuthUser == "" || config.AuthPass == "" {
+			log.Printf("⚠️ 未启用 Basic Auth，文章内容对网络内所有人可见")
+		} else {
+			log.Printf("⚠️ Basic Auth 凭据通过明文 HTTP 传输，可能被窃听，请置于 HTTPS 反向代理之后")
 		}
-
-		cleanPath := filepath.Clean(filePath)
-		fullPath := filepath.Join(absBlogDir, cleanPath)
-		rel, err := filepath.Rel(absBlogDir, fullPath)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			http.Error(w, `{"error":"禁止访问"}`, http.StatusForbidden)
-			return
-		}
-
-		content, err := os.ReadFile(fullPath)
-		if err != nil {
-			http.Error(w, `{"error":"文件不存在"}`, http.StatusNotFound)
-			return
-		}
-
-		dirPath := filepath.ToSlash(filepath.Dir(cleanPath))
-		if dirPath == "." {
-			dirPath = ""
-		}
-
-		ext := strings.ToLower(filepath.Ext(cleanPath))
-		fileType := "markdown"
-		if ext == ".html" {
-			fileType = "html"
-		}
-
-		resp := map[string]string{
-			"content":  string(content),
-			"dirPath":  dirPath,
-			"fileType": fileType,
-		}
-		writeJSON(w, resp)
-	})
-
-	// 前端页面
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			data, err := frontend.ReadFile("public/index.html")
-			if err != nil {
-				http.Error(w, "前端页面丢失", http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Write(data)
-			return
-		}
-		fileServer := http.FileServer(http.FS(frontend))
-		fileServer.ServeHTTP(w, r)
-	})
-
-	addr := fmt.Sprintf(":%d", config.Port)
-	log.Printf("🚀 %s 已启动: http://localhost%s", config.BlogName, addr)
-	log.Printf("📂 博客目录: %s", absBlogDir)
-	if err := http.ListenAndServe(addr, loggingMiddleware(mux)); err != nil {
+	}
+	if err := http.ListenAndServe(addr, app.routes()); err != nil {
 		log.Fatalf("服务启动失败: %v", err)
 	}
+}
+
+func newApp(blogDir string, cfg Config) (*App, error) {
+	if cfg.BlogName == "" {
+		cfg.BlogName = "轻舟博客"
+	}
+	if strings.TrimSpace(cfg.Bind) == "" {
+		cfg.Bind = "127.0.0.1"
+	}
+	absDir, err := filepath.Abs(blogDir)
+	if err != nil {
+		return nil, fmt.Errorf("无法解析博客目录: %w", err)
+	}
+	// 启动时解析根目录自身的符号链接，后续所有路径校验都以真实路径为基准。
+	root, err := filepath.EvalSymlinks(absDir)
+	if err != nil {
+		return nil, fmt.Errorf("无法解析博客目录真实路径: %w", err)
+	}
+
+	indexHTML, err := frontend.ReadFile("public/index.html")
+	if err != nil {
+		return nil, fmt.Errorf("前端页面丢失: %w", err)
+	}
+	sum := sha256.Sum256(indexHTML)
+
+	app := &App{
+		root:      root,
+		cfg:       cfg,
+		indexHTML: indexHTML,
+		indexETag: `"` + hex.EncodeToString(sum[:16]) + `"`,
+	}
+	if snap, err := app.reload(); err != nil {
+		log.Printf("⚠️ 扫描博客目录失败: %v", err)
+		app.snapshot.Store(&Snapshot{Generated: time.Now()})
+	} else {
+		log.Printf("📚 已索引 %d 篇文章（草稿 %d 篇）", snap.PublishedCount(), snap.DraftCount())
+	}
+	return app, nil
+}
+
+func (a *App) routes() http.Handler {
+	mux := http.NewServeMux()
+
+	// 博客静态文件（已做根目录与符号链接校验）
+	mux.HandleFunc("/blog-files/", serveBlogFile(a.root))
+
+	// API：获取配置
+	mux.HandleFunc("/api/config", a.handleConfig)
+
+	// API：获取目录树
+	mux.HandleFunc("/api/tree", a.handleTree)
+
+	// API：获取文件内容
+	mux.HandleFunc("/api/file", a.handleFile)
+
+	// RSS 订阅
+	mux.HandleFunc("/feed.xml", a.handleFeed)
+
+	// 站点地图（仅收录已发布文章）
+	mux.HandleFunc("/sitemap.xml", a.handleSitemap)
+
+	// 带 SEO 元信息的文章入口页
+	mux.HandleFunc("/article/", a.handleArticle)
+
+	// 重新扫描博客目录（仅回环地址或持有共享密钥）
+	mux.HandleFunc("/reload", a.handleReload)
+
+	// 前端页面
+	mux.HandleFunc("/", a.handleIndex)
+
+	return loggingMiddleware(safePathMiddleware(a.authMiddleware(mux)))
+}
+
+func (a *App) reload() (*Snapshot, error) {
+	snap, err := scanBlog(a.root)
+	if err != nil {
+		return nil, err
+	}
+	a.snapshot.Store(snap)
+	return snap, nil
+}
+
+func (a *App) currentSnapshot() *Snapshot {
+	if snap := a.snapshot.Load(); snap != nil {
+		return snap
+	}
+	return &Snapshot{}
+}
+
+func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]string{
+		"blogName": a.cfg.BlogName,
+		"rootDir":  a.root,
+	})
+}
+
+func (a *App) handleTree(w http.ResponseWriter, r *http.Request) {
+	snap := a.currentSnapshot()
+	writeJSON(w, map[string]interface{}{
+		"rootDir":  a.root,
+		"children": snap.Tree,
+	})
+}
+
+func (a *App) handleFile(w http.ResponseWriter, r *http.Request) {
+	filePath := r.URL.Query().Get("path")
+	if filePath == "" {
+		http.Error(w, `{"error":"缺少 path 参数"}`, http.StatusBadRequest)
+		return
+	}
+
+	rel := filepath.ToSlash(strings.TrimLeft(filepath.FromSlash(filePath), `/\`))
+	ext := strings.ToLower(path.Ext(rel))
+	if ext != ".md" && ext != ".html" {
+		http.Error(w, `{"error":"文件不存在"}`, http.StatusNotFound)
+		return
+	}
+
+	fullPath, err := resolveInsideRoot(a.root, rel)
+	if err != nil {
+		if errors.Is(err, errUnsafePath) {
+			http.Error(w, `{"error":"禁止访问"}`, http.StatusForbidden)
+		} else {
+			http.Error(w, `{"error":"文件不存在"}`, http.StatusNotFound)
+		}
+		return
+	}
+
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		http.Error(w, `{"error":"文件不存在"}`, http.StatusNotFound)
+		return
+	}
+
+	dirPath := path.Dir(rel)
+	if dirPath == "." {
+		dirPath = ""
+	}
+	fileType := "markdown"
+	if ext == ".html" {
+		fileType = "html"
+	}
+
+	writeJSON(w, map[string]string{
+		"content":  string(content),
+		"dirPath":  dirPath,
+		"fileType": fileType,
+	})
+}
+
+func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-cache")
+	if r.URL.Path != "/" {
+		// 目前仅嵌入 index.html；保留 embed.FS 兜底以便将来增加静态资源。
+		http.FileServer(http.FS(frontend)).ServeHTTP(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("ETag", a.indexETag)
+	if etagMatches(r.Header.Get("If-None-Match"), a.indexETag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Write(a.indexHTML)
+}
+
+func (a *App) handleReload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, `{"error":"仅支持 POST"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	if !a.reloadAllowed(r) {
+		http.Error(w, `{"error":"未授权的 reload 请求"}`, http.StatusForbidden)
+		return
+	}
+
+	snap, err := a.reload()
+	if err != nil {
+		http.Error(w, `{"error":"重新扫描失败"}`, http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]interface{}{
+		"ok":        true,
+		"articles":  snap.PublishedCount(),
+		"drafts":    snap.DraftCount(),
+		"generated": snap.Generated,
+	})
+}
+
+func isLoopbackRequest(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(strings.Trim(host, "[]"))
+	return ip != nil && ip.IsLoopback()
+}
+
+// etagMatches 实现 If-None-Match 的弱比较。
+func etagMatches(header, etag string) bool {
+	for _, part := range strings.Split(header, ",") {
+		part = strings.TrimSpace(part)
+		if part == "*" || part == etag || strings.TrimPrefix(part, "W/") == etag {
+			return true
+		}
+	}
+	return false
 }
 
 // 初始化配置文件（若不存在则创建）
@@ -160,6 +352,7 @@ func initConfigFile() {
 	if _, err := os.Stat(*configFile); os.IsNotExist(err) {
 		defaultCfg := Config{
 			Port:     3000,
+			Bind:     "127.0.0.1",
 			BlogDir:  "blog-files",
 			BlogName: "轻舟博客", // 默认名称
 		}
@@ -177,6 +370,7 @@ func initConfigFile() {
 func loadConfig() {
 	config = Config{
 		Port:     3000,
+		Bind:     "127.0.0.1",
 		BlogDir:  "blog-files",
 		BlogName: "轻舟博客", // 默认值
 	}
@@ -232,65 +426,6 @@ func initBlogDir() {
 		os.WriteFile(sampleFile, []byte(sampleContent), 0644)
 		log.Printf("已创建示例文章: %s", sampleFile)
 	}
-}
-
-// 递归生成目录树
-func buildTree(basePath, relPath string) []*TreeNode {
-	fullPath := filepath.Join(basePath, relPath)
-	entries, err := os.ReadDir(fullPath)
-	if err != nil {
-		return nil
-	}
-
-	var nodes []*TreeNode
-
-	// 目录
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		childRel := filepath.Join(relPath, entry.Name())
-		children := buildTree(basePath, childRel)
-		nodes = append(nodes, &TreeNode{
-			Name:     entry.Name(),
-			Type:     "directory",
-			Path:     filepath.ToSlash(childRel),
-			Children: children,
-		})
-	}
-
-	// 文件
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		ext := strings.ToLower(filepath.Ext(name))
-		if ext != ".md" && ext != ".html" {
-			continue
-		}
-
-		fileRel := filepath.Join(relPath, name)
-		dirPath := filepath.ToSlash(relPath)
-		if dirPath == "" || dirPath == "." {
-			dirPath = "."
-		}
-
-		fileType := "markdown"
-		if ext == ".html" {
-			fileType = "html"
-		}
-
-		nodes = append(nodes, &TreeNode{
-			Name:     name,
-			Type:     "file",
-			Path:     filepath.ToSlash(fileRel),
-			DirPath:  dirPath,
-			FileType: fileType,
-		})
-	}
-
-	return nodes
 }
 
 func writeJSON(w http.ResponseWriter, data interface{}) {

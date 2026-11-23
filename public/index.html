@@ -3,11 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>轻舟博客</title>
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="/feed.xml">
+    <script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('theme');
+                var theme = stored || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.dataset.theme = theme;
+            } catch (e) {}
+        })();
+    </script>
     <!-- Marked.js -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- DOMPurify -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
     <!-- Highlight.js -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+    <link rel="stylesheet" id="hljsTheme" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/javascript.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/bash.min.js"></script>
@@ -27,6 +40,18 @@
             --code-bg: #f4f1ec;
             --shadow-sm: 0 1px 4px rgba(0,0,0,0.04);
             --shadow-md: 0 8px 24px rgba(0,0,0,0.06);
+            --topbar-bg: #ffffff;
+            --solid-bg: #ffffff;
+            --input-focus-bg: #ffffff;
+            --pre-bg: #f8f5f0;
+            --th-bg: #faf8f5;
+            --scroll-thumb: #d9d2c5;
+            --tree-line: #e0d8cc;
+            --hover-line: #c7d4c2;
+            --highlight-bg: #fff3cd;
+            --active-text: #3a543a;
+            --code-text: #5a705a;
+            --placeholder: #b8b0a4;
             --radius: 14px;
             --radius-sm: 8px;
             --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -36,6 +61,43 @@
             --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
             --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans', sans-serif;
             --font-serif: 'Georgia', 'Times New Roman', 'Source Han Serif SC', 'Noto Serif SC', serif;
+        }
+
+        :root[data-theme="light"] { color-scheme: light; }
+
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #12140f;
+            --sidebar-bg: #181b15;
+            --card-bg: #1c2019;
+            --text: #e6e6df;
+            --text-secondary: #b3b3a8;
+            --text-muted: #8a8a80;
+            --border: #2f342b;
+            --accent: #8fbf8f;
+            --accent-soft: #22301f;
+            --hover-bg: #242820;
+            --active-bg: #2b3a28;
+            --code-bg: #242820;
+            --shadow-sm: 0 1px 4px rgba(0,0,0,0.4);
+            --shadow-md: 0 8px 24px rgba(0,0,0,0.45);
+            --topbar-bg: #1c2019;
+            --solid-bg: #1c2019;
+            --input-focus-bg: #20251d;
+            --pre-bg: #161a13;
+            --th-bg: #20251d;
+            --scroll-thumb: #3a4034;
+            --tree-line: #2f342b;
+            --hover-line: #3f4a38;
+            --highlight-bg: #4a3f1d;
+            --active-text: #cfe6c9;
+            --code-text: #a9c9a9;
+            --placeholder: #6f7568;
+        }
+
+        @supports (backdrop-filter: blur(10px)) {
+            :root { --topbar-bg: rgba(255,255,255,0.8); }
+            :root[data-theme="dark"] { --topbar-bg: rgba(28,32,25,0.85); }
         }
 
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -115,15 +177,15 @@
         .search-input:focus {
             border-color: var(--accent);
             box-shadow: 0 0 0 4px rgba(107,142,107,0.1);
-            background: #fff;
+            background: var(--input-focus-bg);
         }
-        .search-input::placeholder { color: #b8b0a4; }
+        .search-input::placeholder { color: var(--placeholder); }
         .search-icon {
             position: absolute;
             left: 28px;
             top: 50%;
             transform: translateY(-50%);
-            color: #b8b0a4;
+            color: var(--placeholder);
             transition: color var(--transition);
             pointer-events: none;
             display: flex;
@@ -140,7 +202,7 @@
         }
         .tree-container::-webkit-scrollbar { width: 4px; }
         .tree-container::-webkit-scrollbar-track { background: transparent; }
-        .tree-container::-webkit-scrollbar-thumb { background: #d9d2c5; border-radius: 10px; }
+        .tree-container::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; }
 
         .tree-node { user-select: none; }
         .tree-node .node-row {
@@ -162,11 +224,11 @@
         }
         .tree-node .node-row:hover {
             background: var(--hover-bg);
-            border-left-color: #c7d4c2;
+            border-left-color: var(--hover-line);
         }
         .tree-node .node-row.active {
             background: var(--active-bg);
-            color: #3a543a;
+            color: var(--active-text);
             font-weight: 600;
             border-left-color: var(--accent);
             box-shadow: inset 3px 0 0 var(--accent);
@@ -200,7 +262,7 @@
             padding-left: 20px;
             overflow: hidden;
             transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-            border-left: 1px dashed #e0d8cc;
+            border-left: 1px dashed var(--tree-line);
             margin-left: 14px;
         }
         .tree-node.collapsed > .children { max-height: 0 !important; border-left-color: transparent; }
@@ -213,7 +275,7 @@
         .search-empty.show { display: block; }
         .search-empty svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
         .tree-node.match-highlight > .node-row .node-name {
-            background: #fff3cd; border-radius: 3px; padding: 0 4px;
+            background: var(--highlight-bg); border-radius: 3px; padding: 0 4px;
         }
         .tree-node.match-in-children > .node-row .node-name::after {
             content: ' ●'; color: var(--accent); font-size: 0.7rem; vertical-align: middle;
@@ -234,25 +296,37 @@
             border-bottom: 1px solid var(--border);
             display: flex; align-items: center;
             padding: 0 28px; gap: 14px;
-            background: #fff;
+            background: var(--topbar-bg);
             box-shadow: 0 1px 6px rgba(0,0,0,0.03);
             z-index: 50; flex-shrink: 0;
         }
         @supports (backdrop-filter: blur(10px)) {
             .top-bar {
-                background: rgba(255,255,255,0.8);
                 backdrop-filter: blur(10px);
             }
         }
         .menu-toggle {
             display: none; width: 38px; height: 38px;
             border-radius: var(--radius-sm); border: 1.5px solid var(--border);
-            background: #fff; cursor: pointer;
+            background: var(--solid-bg); cursor: pointer;
             align-items: center; justify-content: center;
             flex-shrink: 0; color: var(--text-secondary);
             transition: all var(--transition);
         }
         .menu-toggle:hover { background: var(--hover-bg); border-color: var(--accent); }
+        .theme-toggle {
+            width: 38px; height: 38px;
+            border-radius: var(--radius-sm); border: 1.5px solid var(--border);
+            background: var(--solid-bg); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; color: var(--text-secondary);
+            transition: all var(--transition);
+            margin-left: auto;
+        }
+        .theme-toggle:hover { background: var(--hover-bg); border-color: var(--accent); color: var(--accent); }
+        .theme-toggle .icon-moon { display: none; }
+        :root[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+        :root[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
         .breadcrumb {
             display: flex; align-items: center; gap: 5px;
             font-size: 0.82rem; color: var(--text-muted);
@@ -270,7 +344,7 @@
         }
         .content-area::-webkit-scrollbar { width: 6px; }
         .content-area::-webkit-scrollbar-track { background: transparent; }
-        .content-area::-webkit-scrollbar-thumb { background: #d9d2c5; border-radius: 10px; }
+        .content-area::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; }
 
         /* 文章布局：左侧正文 + 右侧悬浮目录 */
         .article-layout {
@@ -304,7 +378,7 @@
             display: block;
         }
         .article-toc::-webkit-scrollbar { width: 3px; }
-        .article-toc::-webkit-scrollbar-thumb { background: #d9d2c5; border-radius: 10px; }
+        .article-toc::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; }
 
         .toc-title {
             font-weight: 600;
@@ -377,7 +451,7 @@
         .welcome-card code {
             background: var(--code-bg); padding: 2px 10px;
             border-radius: 4px; font-size: 0.85rem;
-            font-family: var(--font-mono); color: #5a705a;
+            font-family: var(--font-mono); color: var(--code-text);
         }
 
         /* Markdown 样式 */
@@ -411,10 +485,10 @@
         .markdown-body code {
             font-family: var(--font-mono);
             background: var(--code-bg); padding: 3px 8px;
-            border-radius: 5px; font-size: 0.9em; color: #5a705a;
+            border-radius: 5px; font-size: 0.9em; color: var(--code-text);
         }
         .markdown-body pre {
-            background: #f8f5f0; border: 1px solid var(--border);
+            background: var(--pre-bg); border: 1px solid var(--border);
             border-radius: var(--radius-sm); padding: 20px 22px;
             overflow-x: auto; margin: 1.6em 0; line-height: 1.7;
             font-size: 0.9rem; position: relative;
@@ -430,7 +504,7 @@
         }
         .markdown-body table { border-collapse: collapse; width: 100%; margin: 1.4em 0; font-size: 0.92rem; }
         .markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: 12px 16px; text-align: left; }
-        .markdown-body th { background: #faf8f5; font-weight: 600; }
+        .markdown-body th { background: var(--th-bg); font-weight: 600; }
         .markdown-body img { max-width: 100%; border-radius: var(--radius-sm); margin: 1.2em 0; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
         .markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 2.5em 0; }
         .markdown-body input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent); }
@@ -488,6 +562,7 @@
             .welcome-card { padding: 40px 24px; margin-top: 40px; }
         }
     </style>
+    <!-- SEO_META -->
 </head>
 <body>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -526,6 +601,10 @@
             <nav class="breadcrumb" id="breadcrumb">
                 <span>🏠</span><span class="sep">›</span><span class="current">首页</span>
             </nav>
+            <button class="theme-toggle" id="themeToggle" title="切换深色模式" aria-label="切换深色模式">
+                <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
         </div>
         <div class="content-area" id="contentArea">
             <!-- 动态内容 -->
@@ -549,6 +628,7 @@
             const searchEmpty = document.getElementById('searchEmpty');
             const sidebarMeta = document.getElementById('sidebarMeta');
             const sidebarTitle = document.querySelector('.sidebar-title');
+            const themeToggle = document.getElementById('themeToggle');
 
             let treeData = null;
             let currentFilePath = null;
@@ -598,6 +678,57 @@
                 const div = document.createElement('div');
                 div.textContent = str;
                 return div.innerHTML;
+            }
+
+            // 移除文件头部的 YAML frontmatter，仅用于展示；标题/日期/草稿标记由服务端解析。
+            function stripFrontmatter(text) {
+                const normalized = text.replace(/^\uFEFF/, '');
+                const lines = normalized.split('\n');
+                if (lines.length < 3 || lines[0].trim() !== '---') return text;
+                for (let i = 1; i < lines.length; i++) {
+                    if (lines[i].trim() === '---') {
+                        return lines.slice(i + 1).join('\n');
+                    }
+                }
+                return text;
+            }
+
+            // ========= 深色模式 =========
+            function currentTheme() {
+                return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+            }
+            function applyTheme(theme, persist) {
+                document.documentElement.dataset.theme = theme;
+                if (persist) {
+                    try { localStorage.setItem('theme', theme); } catch (e) {}
+                }
+                const hljsTheme = document.getElementById('hljsTheme');
+                if (hljsTheme) {
+                    const href = theme === 'dark'
+                        ? 'https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css'
+                        : 'https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css';
+                    if (hljsTheme.getAttribute('href') !== href) hljsTheme.setAttribute('href', href);
+                }
+                if (themeToggle) {
+                    const label = theme === 'dark' ? '切换到浅色模式' : '切换到深色模式';
+                    themeToggle.setAttribute('aria-label', label);
+                    themeToggle.title = label;
+                }
+            }
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    applyTheme(currentTheme() === 'dark' ? 'light' : 'dark', true);
+                });
+                applyTheme(currentTheme(), false);
+            }
+            if (window.matchMedia) {
+                const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                const onSchemeChange = (e) => {
+                    try { if (localStorage.getItem('theme')) return; } catch (err) { return; }
+                    applyTheme(e.matches ? 'dark' : 'light', false);
+                };
+                if (darkQuery.addEventListener) darkQuery.addEventListener('change', onSchemeChange);
+                else if (darkQuery.addListener) darkQuery.addListener(onSchemeChange);
             }
 
             // 生成唯一的ID
@@ -742,8 +873,9 @@
                                 <div class="article-main">
                                     <div class="article-card" style="padding:0; overflow:hidden; border-radius:var(--radius);">
                                         <iframe src="${fileUrl}" id="htmlIframe"
+                                                referrerpolicy="no-referrer"
                                                 style="width:100%; min-height:600px; border:none; border-radius:var(--radius);"
-                                                sandbox="allow-scripts allow-same-origin"></iframe>
+                                                sandbox="allow-same-origin"></iframe>
                                     </div>
                                 </div>
                                 <aside class="article-toc" id="articleTOC"></aside>
@@ -767,7 +899,18 @@
                             });
                         }
                         if (typeof marked !== 'undefined') marked.setOptions({ gfm: true, breaks: false });
-                        const html = typeof marked !== 'undefined' ? marked.parse(mdContent) : '<pre>' + escapeHtml(mdContent) + '</pre>';
+                        const displayContent = stripFrontmatter(mdContent);
+                        let html;
+                        if (typeof marked !== 'undefined') {
+                            const rawHtml = marked.parse(displayContent);
+                            // 接入 DOMPurify：剥离 script、事件属性与 javascript: URL。
+                            // 若清洗库未加载，则安全降级为转义文本，绝不直接注入原始 HTML。
+                            html = typeof DOMPurify !== 'undefined'
+                                ? DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } })
+                                : '<pre>' + escapeHtml(displayContent) + '</pre>';
+                        } else {
+                            html = '<pre>' + escapeHtml(displayContent) + '</pre>';
+                        }
 
                         contentArea.innerHTML = `
                             <div class="article-layout">
@@ -1002,8 +1145,10 @@
 
                     const hashPath = getFilePathFromHash();
                     if (hashPath) {
+                        // 草稿不在导航树中，但仍允许通过直接 URL 预览
                         const found = findNodeByPath(treeData, hashPath);
-                        if (found) { loadArticle(hashPath, found.dirPath || ''); return; }
+                        loadArticle(hashPath, found ? (found.dirPath || '') : '');
+                        return;
                     }
                     if (!currentFilePath) loadWelcome();
                 } catch (err) {
@@ -1027,8 +1172,9 @@
             window.addEventListener('hashchange', () => {
                 const hashPath = getFilePathFromHash();
                 if (hashPath && hashPath !== currentFilePath && treeData) {
+                    // 草稿不在导航树中，仍按路径直接加载
                     const found = findNodeByPath(treeData, hashPath);
-                    if (found) loadArticle(hashPath, found.dirPath || '');
+                    loadArticle(hashPath, found ? (found.dirPath || '') : '');
                 } else if (!hashPath && currentFilePath) {
                     loadWelcome();
                 }
