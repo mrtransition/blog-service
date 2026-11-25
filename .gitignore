@@ -18,3 +18,10 @@ TEST/
 *.test
 *.out
 vendor/
+
+# 本地代理/工具临时目录
+.box-agent-scratch/
+.box-agent/
+
+# 本地交付/审查截图
+/*.png

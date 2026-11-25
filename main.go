@@ -58,12 +58,13 @@ type TreeNode struct {
 
 // App 持有服务运行期的只读状态；元信息快照通过原子替换更新。
 type App struct {
-	root      string
-	cfg       Config
-	snapshot  atomic.Pointer[Snapshot]
-	indexHTML []byte
-	indexETag string
-	publicFS  fs.FS
+	root        string
+	cfg         Config
+	snapshot    atomic.Pointer[Snapshot]
+	indexHTML   []byte
+	indexETag   string
+	publicFS    fs.FS
+	vendorETags map[string]string // /vendor/... 路径 -> 内容 ETag
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -167,6 +168,10 @@ func newApp(blogDir string, cfg Config) (*App, error) {
 		indexETag: `"` + hex.EncodeToString(sum[:16]) + `"`,
 		publicFS:  publicFS,
 	}
+	app.vendorETags, err = buildVendorETags(publicFS)
+	if err != nil {
+		return nil, err
+	}
 	if snap, err := app.reload(); err != nil {
 		log.Printf("⚠️ 扫描博客目录失败: %v", err)
 		app.snapshot.Store(&Snapshot{Generated: time.Now()})
@@ -191,6 +196,9 @@ func (a *App) routes() http.Handler {
 	// API：获取文件内容
 	mux.HandleFunc("/api/file", a.handleFile)
 
+	// 在系统文件管理器中定位文章（仅本机）
+	mux.HandleFunc("/api/reveal", a.handleReveal)
+
 	// RSS 订阅
 	mux.HandleFunc("/feed.xml", a.handleFeed)
 
@@ -206,7 +214,7 @@ func (a *App) routes() http.Handler {
 	// 前端页面
 	mux.HandleFunc("/", a.handleIndex)
 
-	return loggingMiddleware(safePathMiddleware(a.authMiddleware(mux)))
+	return loggingMiddleware(gzipMiddleware(safePathMiddleware(a.authMiddleware(mux))))
 }
 
 func (a *App) reload() (*Snapshot, error) {
@@ -226,10 +234,14 @@ func (a *App) currentSnapshot() *Snapshot {
 }
 
 func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]string{
+	payload := map[string]string{
 		"blogName": a.cfg.BlogName,
-		"rootDir":  a.root,
-	})
+	}
+	// 根目录是本机绝对路径，只对回环请求返回，避免绑定局域网时泄露宿主机目录结构。
+	if isLoopbackRequest(r) {
+		payload["rootDir"] = a.root
+	}
+	writeJSON(w, payload)
 }
 
 func (a *App) handleTree(w http.ResponseWriter, r *http.Request) {
@@ -293,13 +305,13 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Cache-Control", "no-cache")
 	if r.URL.Path != "/" {
 		// 提供本地嵌入的前端静态资源（/vendor/...），不依赖外部 CDN。
-		http.FileServer(http.FS(a.publicFS)).ServeHTTP(w, r)
+		a.serveVendor(w, r)
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("ETag", a.indexETag)
@@ -308,6 +320,54 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(a.indexHTML)
+}
+
+// buildVendorETags 为 public/ 下的静态资源预计算内容哈希。
+//
+// embed.FS 的文件 ModTime 恒为零值，http.FileServer 因此不会输出 Last-Modified，
+// 浏览器只能靠 ETag 做条件请求。这里显式提供强 ETag，配合长缓存避免每次刷新
+// 都重新下载 marked / DOMPurify / highlight.js（合计约 214KB）。
+func buildVendorETags(publicFS fs.FS) (map[string]string, error) {
+	etags := make(map[string]string)
+	err := fs.WalkDir(publicFS, ".", func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() || p == "index.html" {
+			return nil
+		}
+		data, err := fs.ReadFile(publicFS, p)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(data)
+		etags["/"+filepath.ToSlash(p)] = `"` + hex.EncodeToString(sum[:16]) + `"`
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("前端静态资源索引失败: %w", err)
+	}
+	return etags, nil
+}
+
+// serveVendor 提供嵌入的 vendor 静态资源。
+//
+// 资源内容随二进制固化，可用长缓存 + 强 ETag 做条件请求；
+// 命中缓存或 304 时完全跳过文件读取，首屏不再等待 214KB 脚本下载。
+func (a *App) serveVendor(w http.ResponseWriter, r *http.Request) {
+	etag := a.vendorETags[r.URL.Path]
+	if etag == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	if etagMatches(r.Header.Get("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	http.FileServer(http.FS(a.publicFS)).ServeHTTP(w, r)
 }
 
 func (a *App) handleReload(w http.ResponseWriter, r *http.Request) {

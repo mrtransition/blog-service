@@ -1,5 +1,38 @@
 # 更新日志
 
+## [未发布]
+
+### 新功能
+- 左侧导航支持鼠标悬浮提示：文件名过长被省略号截断时，悬浮即显示完整文件名与所在目录的绝对路径（深色/浅色主题自适应，键盘聚焦同样可见）
+- 新增「在文件夹中定位」：文件行悬浮时右侧出现定位按钮，点击后在系统文件管理器中选中该文件（Windows `explorer /select`、macOS `open -R`、Linux `xdg-open`）
+- 左侧导航栏自身带收起按钮：隐藏后通过屏幕左边缘的展开标签恢复，状态持久化到 `localStorage`
+- 右侧文章目录自身带收起按钮：隐藏后通过屏幕右边缘的展开标签恢复，状态持久化到 `localStorage`
+- 顶栏新增内容宽度调节：滑杆与 60%–100% 快捷值，实时调整中间内容区宽度并持久化到 `localStorage`
+- 顶栏新增全屏阅读：隐藏左右边栏与顶栏，支持浏览器全屏 API，按 `Esc` 或右上角按钮退出
+- 移除文章卡片 860px 与内容布局 1200px 的固定上限，宽屏下内容可随百分比设置展开
+
+### 修复
+- 修复「定位文件」点击无反应：程序作为 Windows 服务运行在 Session 0，与用户桌面（Session 1）隔离，直接启动的 `explorer.exe` 窗口不可见。现通过 `WTSQueryUserToken` + `CreateProcessAsUser` 把资源管理器投递到交互式桌面会话（需服务以 LocalSystem 运行，并显式启用 `SeTcbPrivilege`）
+- 定位失败不再静默：后端区分「已在桌面显示」与「仅在不可见会话启动」，并把 `detail` 原因回传给前端提示条，避免用户只看到按钮无反应
+- 修复定位打开错误目录（如「文档」而非目标文件夹）：explorer 的 `/select,` 开关必须留在引号外、仅路径加引号；原先写成 `"/select,路径"` 会被当作单个参数，开关失效后退回默认目录。改用 `SysProcAttr.CmdLine` 精确拼装命令行，避免 `exec.Command` 对含空格参数整体加引号
+
+- 修复「导出型 HTML」文章白屏：部分工具导出的 HTML 把正文以 JS 字符串塞进 `marked.parse("...")`，页面本身只有空容器；此前安全策略移除全部 `<script>` 后必然全白。现在会提取脚本内嵌的 Markdown，交给正常的 Markdown 流程渲染（含 DOMPurify 清洗、代码高亮与右侧目录），静态 HTML 文章不受影响
+- 代码块语言标识归一化：` ```Plain Text `、` ```js ` 等标注此前会被 highlight.js 判为未注册语言并逐块告警、回退到较慢的自动探测；现统一映射到已注册语言，未知语言回退 `plaintext`
+
+### 安全
+- 新增 `/api/reveal`（本机定位文件）仅接受回环地址的 POST 请求，并复用根目录符号链接校验；服务绑定局域网时远程用户无法通过它触发宿主机的文件管理器
+- `/api/config` 的 `rootDir`（宿主机绝对路径）改为只对本机请求返回，避免绑定局域网时泄露目录结构
+
+### 性能
+- 修复 HTML 文章加载慢：此前 iframe 直接加载原文件，Google Fonts / CDN 等外链样式在离线或弱网下会阻塞渲染
+- HTML 正文改为复用 `/api/file` 结果并通过 `srcdoc` 渲染，去掉重复的 `/blog-files/` 请求
+- HTML 预处理移除外链阻塞样式、脚本与 `@import`，注入 `<base>` 与 CSP，保留内联样式、本地资源与外链图片
+- iframe 高度改为渐进测量并配合 `ResizeObserver`，不再等待慢图片或外链资源
+- 前端 vendor 脚本增加 `defer`，初始化推迟到 `DOMContentLoaded`，避免阻塞首屏绘制
+- 新增 gzip 压缩中间件：`public/vendor` 下 214KB 前端依赖压缩至 75KB（-65%），首页 HTML 由 87KB 降至 18KB（-79%）；400kbps 弱网下首屏从 6.9s 降至 3.2s
+- vendor 静态资源改用内容哈希强 ETag + `Cache-Control: immutable`（`embed.FS` 的 `ModTime` 恒为零，此前缺少 `Last-Modified`，浏览器无法缓存，每次刷新都要重下 214KB）
+- 修复 iframe 高度只增不减：改用 `body` 内容高度测量（原 `documentElement.scrollHeight` 恒 ≥ 视口高度，一旦设高便无法回落），文章底部曾产生约 4.3 万像素空白，现高度误差为 1px 并随窗口缩放正常收缩
+
 ## [1.3.0] - 2026-11-23
 
 ### 安全
@@ -42,6 +75,10 @@
 - 深色模式：跟随系统偏好，右上角按钮手动切换并持久化到 `localStorage`，同步切换 highlight.js 主题
 - `POST /reload`：仅本机可触发的元信息快照热刷新
 
+### 修复
+- 修复「导出型 HTML」文章白屏：部分工具导出的 HTML 把正文以 JS 字符串塞进 `marked.parse("...")`，页面本身只有空容器；此前安全策略移除全部 `<script>` 后必然全白。现在会提取脚本内嵌的 Markdown，交给正常的 Markdown 流程渲染（含 DOMPurify 清洗、代码高亮与右侧目录），静态 HTML 文章不受影响
+- 代码块语言标识归一化：` ```Plain Text `、` ```js ` 等标注此前会被 highlight.js 判为未注册语言并逐块告警、回退到较慢的自动探测；现统一映射到已注册语言，未知语言回退 `plaintext`
+
 ### 性能
 - 启动时一次性 `WalkDir` 生成 `{path, mtime, title, category, isDraft}` 元信息快照，导航与 feed 读取不可变快照，不再逐请求递归扫描目录
 
@@ -72,6 +109,10 @@
 ### 后端
 - 添加请求日志中间件，输出请求方法与路径
 - 空目录现在会在目录树中显示（此前被过滤不可见）
+
+### 修复
+- 修复「导出型 HTML」文章白屏：部分工具导出的 HTML 把正文以 JS 字符串塞进 `marked.parse("...")`，页面本身只有空容器；此前安全策略移除全部 `<script>` 后必然全白。现在会提取脚本内嵌的 Markdown，交给正常的 Markdown 流程渲染（含 DOMPurify 清洗、代码高亮与右侧目录），静态 HTML 文章不受影响
+- 代码块语言标识归一化：` ```Plain Text `、` ```js ` 等标注此前会被 highlight.js 判为未注册语言并逐块告警、回退到较慢的自动探测；现统一映射到已注册语言，未知语言回退 `plaintext`
 
 ### 性能
 - 移除 8 个未使用的 Highlight.js 语言包（保留 javascript、bash）

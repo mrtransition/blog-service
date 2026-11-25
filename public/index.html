@@ -12,18 +12,25 @@
                 var stored = localStorage.getItem('theme');
                 var theme = stored || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                 document.documentElement.dataset.theme = theme;
+                if (localStorage.getItem('sidebarCollapsed') === '1') {
+                    document.documentElement.dataset.sidebar = 'collapsed';
+                }
+                var cw = parseInt(localStorage.getItem('contentWidth'), 10);
+                if (!isNaN(cw) && cw >= 50 && cw <= 100) {
+                    document.documentElement.style.setProperty('--content-width', cw + '%');
+                }
             } catch (e) {}
         })();
     </script>
     <!-- Marked.js（本地嵌入，离线可用） -->
-    <script src="/vendor/marked.umd.js"></script>
+    <script defer src="/vendor/marked.umd.js"></script>
     <!-- DOMPurify（本地嵌入，离线可用） -->
-    <script src="/vendor/purify.min.js"></script>
+    <script defer src="/vendor/purify.min.js"></script>
     <!-- Highlight.js（本地嵌入，离线可用） -->
     <link rel="stylesheet" id="hljsTheme" href="/vendor/github.min.css">
-    <script src="/vendor/highlight.min.js"></script>
-    <script src="/vendor/javascript.min.js"></script>
-    <script src="/vendor/bash.min.js"></script>
+    <script defer src="/vendor/highlight.min.js"></script>
+    <script defer src="/vendor/javascript.min.js"></script>
+    <script defer src="/vendor/bash.min.js"></script>
     <style>
         :root {
             --bg: #fafaf8;
@@ -58,9 +65,13 @@
             --sidebar-width: 280px;
             --header-height: 60px;
             --toc-width: 220px;
+            --content-width: 100%;
             --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
             --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans', sans-serif;
             --font-serif: 'Georgia', 'Times New Roman', 'Source Han Serif SC', 'Noto Serif SC', serif;
+            --tooltip-bg: #2c2c2c;
+            --tooltip-text: #f7f6f2;
+            --tooltip-muted: #b3b3a8;
         }
 
         :root[data-theme="light"] { color-scheme: light; }
@@ -93,6 +104,9 @@
             --active-text: #cfe6c9;
             --code-text: #a9c9a9;
             --placeholder: #6f7568;
+            --tooltip-bg: #2b3026;
+            --tooltip-text: #e6e6df;
+            --tooltip-muted: #9aa294;
         }
 
         @supports (backdrop-filter: blur(10px)) {
@@ -122,7 +136,18 @@
             display: flex;
             flex-direction: column;
             z-index: 100;
-            transition: transform var(--transition);
+            overflow: hidden;
+            transition: transform var(--transition),
+                        width var(--transition),
+                        min-width var(--transition),
+                        border-color var(--transition);
+        }
+        /* 桌面端收起左侧目录栏 */
+        :root[data-sidebar="collapsed"] .sidebar {
+            width: 0;
+            min-width: 0;
+            border-right-width: 0;
+            border-right-color: transparent;
         }
         .sidebar-header {
             padding: 24px 22px 16px;
@@ -154,6 +179,50 @@
             font-size: 0.75rem;
             color: var(--text-muted);
             margin-top: 2px;
+        }
+        .sidebar-collapse {
+            margin-left: auto;
+            width: 26px; height: 26px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid transparent; border-radius: 6px;
+            background: transparent; color: var(--text-muted);
+            cursor: pointer; transition: all var(--transition);
+        }
+        .sidebar-collapse:hover {
+            color: var(--accent);
+            border-color: var(--border);
+            background: var(--hover-bg);
+        }
+
+        /* 边栏收起后贴在屏幕边缘的展开按钮 */
+        .panel-fab {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 120;
+            width: 26px; height: 58px;
+            display: none;
+            align-items: center; justify-content: center;
+            border: 1px solid var(--border);
+            background: var(--solid-bg);
+            color: var(--text-muted);
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            transition: color var(--transition), background var(--transition), border-color var(--transition);
+        }
+        .panel-fab.show { display: flex; }
+        .panel-fab:hover {
+            color: var(--accent);
+            background: var(--hover-bg);
+            border-color: var(--accent);
+        }
+        .panel-fab.panel-fab-left {
+            left: 0; border-left: none;
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        }
+        .panel-fab.panel-fab-right {
+            right: 0; border-right: none;
+            border-radius: var(--radius-sm) 0 0 var(--radius-sm);
         }
 
         .search-wrap {
@@ -257,7 +326,82 @@
         }
         .tree-node .node-row .node-name {
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            min-width: 0; flex: 1;
         }
+        /* 定位按钮：默认隐藏，悬浮/聚焦到行时出现 */
+        .tree-node .node-row .node-reveal {
+            flex-shrink: 0;
+            width: 20px; height: 20px;
+            display: flex; align-items: center; justify-content: center;
+            margin-left: 2px;
+            border: 1px solid transparent; border-radius: 5px;
+            background: transparent; color: var(--text-muted);
+            cursor: pointer; opacity: 0;
+            transition: opacity 0.15s, color var(--transition), background var(--transition), border-color var(--transition);
+        }
+        .tree-node .node-row:hover .node-reveal,
+        .tree-node .node-row:focus-within .node-reveal { opacity: 1; }
+        .tree-node .node-row .node-reveal:hover {
+            color: var(--accent);
+            background: var(--card-bg);
+            border-color: var(--border);
+        }
+        .tree-node .node-row .node-reveal:focus-visible {
+            opacity: 1; outline: 2px solid var(--accent); outline-offset: 1px;
+        }
+        /* 触屏/窄屏没有悬浮态，常显按钮以便操作 */
+        @media (hover: none), (max-width: 768px) {
+            .tree-node .node-row .node-reveal { opacity: 1; }
+        }
+
+        /* 文件名悬浮提示（左侧栏被 overflow 裁剪，故挂在 body 上定位） */
+        .file-tooltip {
+            position: fixed;
+            z-index: 200;
+            max-width: 320px;
+            padding: 7px 10px;
+            border-radius: 7px;
+            background: var(--tooltip-bg);
+            color: var(--tooltip-text);
+            font-size: 0.78rem;
+            line-height: 1.45;
+            font-family: var(--font-sans);
+            word-break: break-all;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.22);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(2px);
+            transition: opacity 0.12s ease, transform 0.12s ease;
+        }
+        .file-tooltip.show { opacity: 1; transform: translateY(0); }
+        .file-tooltip .tt-name { font-weight: 600; }
+        .file-tooltip .tt-path {
+            margin-top: 3px;
+            color: var(--tooltip-muted);
+            font-size: 0.72rem;
+            font-family: var(--font-mono);
+        }
+
+        /* 轻量提示条（定位失败等） */
+        .app-toast {
+            position: fixed;
+            left: 50%;
+            bottom: 32px;
+            transform: translate(-50%, 8px);
+            z-index: 210;
+            max-width: min(420px, calc(100vw - 40px));
+            padding: 10px 18px;
+            border-radius: 10px;
+            background: var(--tooltip-bg);
+            color: var(--tooltip-text);
+            font-size: 0.82rem;
+            font-family: var(--font-sans);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.24);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+        }
+        .app-toast.show { opacity: 1; transform: translate(-50%, 0); }
         .tree-node .children {
             padding-left: 20px;
             overflow: hidden;
@@ -321,12 +465,87 @@
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0; color: var(--text-secondary);
             transition: all var(--transition);
-            margin-left: auto;
         }
         .theme-toggle:hover { background: var(--hover-bg); border-color: var(--accent); color: var(--accent); }
         .theme-toggle .icon-moon { display: none; }
         :root[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
         :root[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+        .top-actions {
+            margin-left: auto;
+            display: flex; align-items: center; gap: 10px;
+            flex-shrink: 0;
+        }
+        .tool-btn {
+            height: 38px; padding: 0 12px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            border-radius: var(--radius-sm); border: 1.5px solid var(--border);
+            background: var(--solid-bg); color: var(--text-secondary);
+            font-size: 0.8rem; font-family: var(--font-sans); font-weight: 500;
+            cursor: pointer; flex-shrink: 0;
+            transition: all var(--transition);
+        }
+        .tool-btn:hover { background: var(--hover-bg); border-color: var(--accent); color: var(--accent); }
+        .tool-btn svg { flex-shrink: 0; }
+        .width-control { position: relative; }
+        .width-label {
+            min-width: 34px; text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .width-popover {
+            position: absolute; top: calc(100% + 10px); right: 0;
+            width: 238px; padding: 14px 16px 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-md);
+            z-index: 80;
+        }
+        .width-popover[hidden] { display: none; }
+        .width-popover-head {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 10px;
+        }
+        .width-popover-head strong {
+            color: var(--accent); font-size: 0.85rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .width-range { width: 100%; accent-color: var(--accent); cursor: pointer; }
+        .width-presets { display: flex; gap: 6px; margin-top: 10px; }
+        .width-presets button {
+            flex: 1; padding: 5px 0;
+            font-size: 0.72rem; font-family: var(--font-sans);
+            border: 1px solid var(--border); border-radius: 6px;
+            background: var(--solid-bg); color: var(--text-secondary);
+            cursor: pointer; transition: all var(--transition);
+        }
+        .width-presets button:hover { border-color: var(--accent); color: var(--accent); }
+        .width-presets button.active {
+            background: var(--accent-soft); border-color: var(--accent);
+            color: var(--active-text); font-weight: 600;
+        }
+        .width-hint { margin-top: 10px; font-size: 0.72rem; line-height: 1.5; color: var(--text-muted); }
+        .fullscreen-toggle .icon-collapse { display: none; }
+        :root[data-fullscreen="on"] .fullscreen-toggle .icon-expand { display: none; }
+        :root[data-fullscreen="on"] .fullscreen-toggle .icon-collapse { display: block; }
+
+        /* ===== 全屏阅读 ===== */
+        .fullscreen-exit {
+            position: fixed; top: 16px; right: 16px; z-index: 130;
+            display: none; align-items: center; gap: 6px;
+            padding: 8px 14px;
+            border: 1px solid var(--border); border-radius: 999px;
+            background: var(--solid-bg); color: var(--text-secondary);
+            font-size: 0.8rem; font-family: var(--font-sans);
+            cursor: pointer; box-shadow: var(--shadow-md);
+            transition: all var(--transition);
+        }
+        .fullscreen-exit:hover { color: var(--accent); border-color: var(--accent); background: var(--hover-bg); }
+        :root[data-fullscreen="on"] .fullscreen-exit { display: flex; }
+        :root[data-fullscreen="on"] .top-bar { display: none; }
+        :root[data-fullscreen="on"] .sidebar,
+        :root[data-fullscreen="on"] .article-toc { display: none !important; }
+        :root[data-fullscreen="on"] .panel-fab { display: none !important; }
+        :root[data-fullscreen="on"] .content-area { padding: 36px 48px; }
         .breadcrumb {
             display: flex; align-items: center; gap: 5px;
             font-size: 0.82rem; color: var(--text-muted);
@@ -351,7 +570,8 @@
             display: flex;
             justify-content: center;
             gap: 28px;
-            max-width: 1200px;
+            width: var(--content-width, 100%);
+            max-width: 1600px;
             margin: 0 auto;
             align-items: flex-start;
         }
@@ -380,15 +600,39 @@
         .article-toc::-webkit-scrollbar { width: 3px; }
         .article-toc::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; }
 
-        .toc-title {
-            font-weight: 600;
-            color: var(--text);
+        .toc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
             margin-bottom: 12px;
-            font-size: 0.9rem;
-            letter-spacing: 0.3px;
             padding-bottom: 8px;
             border-bottom: 1px solid var(--border);
         }
+        .toc-title {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.9rem;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+        .toc-toggle {
+            width: 24px; height: 24px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: 6px;
+            background: var(--solid-bg); color: var(--text-muted);
+            cursor: pointer; transition: all var(--transition);
+        }
+        .toc-toggle:hover {
+            color: var(--accent);
+            border-color: var(--accent);
+            background: var(--hover-bg);
+        }
+        .toc-toggle svg { transition: transform var(--transition); }
+
+        /* 右侧文章目录收起状态：整条隐藏，由屏幕右侧的展开按钮恢复 */
+        .article-toc.collapsed { display: none; }
+        .article-toc.collapsed .toc-list { display: none; }
         .toc-list {
             list-style: none;
             padding: 0;
@@ -422,7 +666,8 @@
 
         /* 文章卡片 */
         .article-card {
-            max-width: 860px;
+            width: 100%;
+            max-width: none;
             margin: 0;
             background: var(--card-bg);
             border-radius: var(--radius);
@@ -541,12 +786,21 @@
                 transform: translateX(-100%);
                 box-shadow: 4px 0 24px rgba(0,0,0,0.15);
             }
+            :root[data-sidebar="collapsed"] .sidebar {
+                width: 78vw;
+                max-width: 320px;
+                border-right-width: 1px;
+                border-right-color: var(--border);
+            }
             .sidebar.open { transform: translateX(0); }
-            .menu-toggle { display: flex; }
+            .sidebar-collapse { display: none; }
+            .width-control { display: none; }
             .content-area { padding: 20px 16px; }
             .article-layout {
                 flex-direction: column;
                 gap: 20px;
+                width: 100%;
+                max-width: none;
             }
             .article-toc {
                 position: static;
@@ -558,6 +812,10 @@
                 margin-bottom: 20px;
                 display: none;
             }
+            /* 移动端目录在页面顶部，收起时保留标题栏，仅折叠条目 */
+            .article-toc.collapsed { display: block; }
+            .fullscreen-exit { top: 10px; right: 10px; }
+            :root[data-fullscreen="on"] .content-area { padding: 24px 16px; }
             .article-card { padding: 28px 20px; border-radius: var(--radius-sm); }
             .welcome-card { padding: 40px 24px; margin-top: 40px; }
         }
@@ -566,6 +824,19 @@
 </head>
 <body>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="file-tooltip" id="fileTooltip" role="tooltip" aria-hidden="true"></div>
+
+    <button class="fullscreen-exit" id="fullscreenExit" title="退出全屏 (Esc)" aria-label="退出全屏">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3M8 21v-3a2 2 0 0 0-2-2H3M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+        <span>退出全屏</span>
+    </button>
+
+    <button class="panel-fab panel-fab-left" id="sidebarRestore" title="展开目录" aria-label="展开目录">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <button class="panel-fab panel-fab-right" id="tocRestore" title="展开文章目录" aria-label="展开文章目录">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
 
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -574,6 +845,9 @@
                 <div class="sidebar-title">轻舟博客</div>
                 <div class="sidebar-meta" id="sidebarMeta">加载中…</div>
             </div>
+            <button class="sidebar-collapse" id="sidebarCollapse" title="收起目录" aria-label="收起目录">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
         </div>
         <div class="search-wrap">
             <input type="text" class="search-input" id="searchInput" placeholder="搜索文章…" autocomplete="off">
@@ -595,16 +869,43 @@
 
     <main class="main">
         <div class="top-bar">
-            <button class="menu-toggle" id="menuToggle" title="目录">
+            <button class="menu-toggle" id="menuToggle" title="目录" aria-label="目录">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <nav class="breadcrumb" id="breadcrumb">
                 <span>🏠</span><span class="sep">›</span><span class="current">首页</span>
             </nav>
-            <button class="theme-toggle" id="themeToggle" title="切换深色模式" aria-label="切换深色模式">
-                <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-                <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            </button>
+            <div class="top-actions">
+                <div class="width-control">
+                    <button class="tool-btn width-toggle" id="widthToggle" title="内容宽度" aria-label="内容宽度" aria-haspopup="true" aria-expanded="false">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+                        <span class="width-label" id="widthLabel">100%</span>
+                    </button>
+                    <div class="width-popover" id="widthPopover" hidden>
+                        <div class="width-popover-head">
+                            <span>内容宽度</span>
+                            <strong id="widthValue">100%</strong>
+                        </div>
+                        <input class="width-range" id="widthRange" type="range" min="50" max="100" step="5" value="100" aria-label="内容宽度百分比">
+                        <div class="width-presets">
+                            <button type="button" data-width="60">60%</button>
+                            <button type="button" data-width="70">70%</button>
+                            <button type="button" data-width="80">80%</button>
+                            <button type="button" data-width="90">90%</button>
+                            <button type="button" data-width="100">100%</button>
+                        </div>
+                        <p class="width-hint">相对中间内容区域，仅影响文章宽度</p>
+                    </div>
+                </div>
+                <button class="tool-btn fullscreen-toggle" id="fullscreenToggle" title="全屏" aria-label="全屏" aria-pressed="false">
+                    <svg class="icon-expand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                    <svg class="icon-collapse" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3M8 21v-3a2 2 0 0 0-2-2H3M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+                </button>
+                <button class="theme-toggle" id="themeToggle" title="切换深色模式" aria-label="切换深色模式">
+                    <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                    <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
         </div>
         <div class="content-area" id="contentArea">
             <!-- 动态内容 -->
@@ -616,11 +917,15 @@
             const API_TREE = '/api/tree';
             const API_FILE = '/api/file?path=';
             const API_CONFIG = '/api/config';  // 新增
+            const API_REVEAL = '/api/reveal';  // 在文件夹中定位
             const BLOG_FILES_PREFIX = '/blog-files/';
 
             const sidebar = document.getElementById('sidebar');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
             const menuToggle = document.getElementById('menuToggle');
+            const sidebarCollapse = document.getElementById('sidebarCollapse');
+            const sidebarRestore = document.getElementById('sidebarRestore');
+            const tocRestore = document.getElementById('tocRestore');
             const treeContainer = document.getElementById('treeContainer');
             const contentArea = document.getElementById('contentArea');
             const breadcrumb = document.getElementById('breadcrumb');
@@ -629,11 +934,156 @@
             const sidebarMeta = document.getElementById('sidebarMeta');
             const sidebarTitle = document.querySelector('.sidebar-title');
             const themeToggle = document.getElementById('themeToggle');
+            const widthToggle = document.getElementById('widthToggle');
+            const widthPopover = document.getElementById('widthPopover');
+            const widthRange = document.getElementById('widthRange');
+            const widthLabel = document.getElementById('widthLabel');
+            const widthValue = document.getElementById('widthValue');
+            const widthPresets = document.querySelectorAll('.width-presets button');
+            const fullscreenToggle = document.getElementById('fullscreenToggle');
+            const fullscreenExit = document.getElementById('fullscreenExit');
+            const fileTooltip = document.getElementById('fileTooltip');
 
             let treeData = null;
             let currentFilePath = null;
             let currentDirPath = '';
             let articleCount = 0;
+
+            const SIDEBAR_STATE_KEY = 'sidebarCollapsed';
+            const TOC_STATE_KEY = 'tocCollapsed';
+            const WIDTH_STATE_KEY = 'contentWidth';
+
+            // ========= 布局收起/展开状态 =========
+            function readStored(key) {
+                try { return localStorage.getItem(key); } catch (e) { return null; }
+            }
+            function writeStored(key, value) {
+                try { localStorage.setItem(key, value); } catch (e) {}
+            }
+            function isMobileView() {
+                return window.innerWidth <= 768;
+            }
+            function isSidebarCollapsed() {
+                return document.documentElement.dataset.sidebar === 'collapsed';
+            }
+            function updateSidebarToggle() {
+                if (menuToggle) {
+                    menuToggle.setAttribute('aria-expanded', String(sidebar.classList.contains('open')));
+                }
+                if (sidebarRestore) {
+                    sidebarRestore.classList.toggle('show', !isMobileView() && isSidebarCollapsed());
+                }
+            }
+            function setSidebarCollapsed(collapsed, persist) {
+                if (collapsed) {
+                    document.documentElement.dataset.sidebar = 'collapsed';
+                } else {
+                    delete document.documentElement.dataset.sidebar;
+                }
+                if (persist) writeStored(SIDEBAR_STATE_KEY, collapsed ? '1' : '0');
+                updateSidebarToggle();
+            }
+            function isTocCollapsed() {
+                return readStored(TOC_STATE_KEY) === '1';
+            }
+            function updateTocRestore() {
+                if (!tocRestore) return;
+                const toc = document.getElementById('articleTOC');
+                const show = !isMobileView()
+                    && !!toc
+                    && toc.classList.contains('has-content')
+                    && toc.classList.contains('collapsed');
+                tocRestore.classList.toggle('show', show);
+            }
+            function setTocCollapsed(container, collapsed, persist) {
+                if (!container) return;
+                container.classList.toggle('collapsed', collapsed);
+                const btn = container.querySelector('.toc-toggle');
+                if (btn) {
+                    const label = collapsed ? '展开文章目录' : '收起文章目录';
+                    btn.title = label;
+                    btn.setAttribute('aria-label', label);
+                    btn.setAttribute('aria-expanded', String(!collapsed));
+                }
+                if (persist) writeStored(TOC_STATE_KEY, collapsed ? '1' : '0');
+                updateTocRestore();
+            }
+
+            // ========= 内容宽度 =========
+            function normalizeContentWidth(value) {
+                const n = parseInt(value, 10);
+                if (isNaN(n)) return 100;
+                return Math.min(100, Math.max(50, n));
+            }
+            function applyContentWidth(value, persist) {
+                const pct = normalizeContentWidth(value);
+                document.documentElement.style.setProperty('--content-width', pct + '%');
+                if (widthRange) widthRange.value = String(pct);
+                if (widthLabel) widthLabel.textContent = pct + '%';
+                if (widthValue) widthValue.textContent = pct + '%';
+                widthPresets.forEach(btn => {
+                    btn.classList.toggle('active', Number(btn.dataset.width) === pct);
+                });
+                if (persist) writeStored(WIDTH_STATE_KEY, String(pct));
+            }
+            function openWidthPopover() {
+                if (!widthPopover || !widthToggle) return;
+                widthPopover.hidden = false;
+                widthToggle.setAttribute('aria-expanded', 'true');
+            }
+            function closeWidthPopover() {
+                if (!widthPopover || !widthToggle) return;
+                widthPopover.hidden = true;
+                widthToggle.setAttribute('aria-expanded', 'false');
+            }
+
+            // ========= 全屏阅读 =========
+            function isFullscreenMode() {
+                return document.documentElement.dataset.fullscreen === 'on';
+            }
+            function updateFullscreenUI() {
+                if (!fullscreenToggle) return;
+                const on = isFullscreenMode();
+                const label = on ? '退出全屏' : '全屏';
+                fullscreenToggle.title = label;
+                fullscreenToggle.setAttribute('aria-label', label);
+                fullscreenToggle.setAttribute('aria-pressed', String(on));
+            }
+            function setFullscreenMode(on) {
+                if (on) {
+                    document.documentElement.dataset.fullscreen = 'on';
+                    closeWidthPopover();
+                } else {
+                    delete document.documentElement.dataset.fullscreen;
+                }
+                updateFullscreenUI();
+                updateSidebarToggle();
+                updateTocRestore();
+            }
+            async function requestAppFullscreen() {
+                const el = document.documentElement;
+                const request = el.requestFullscreen || el.webkitRequestFullscreen;
+                if (!request || document.fullscreenElement || document.webkitFullscreenElement) return;
+                try { await request.call(el); } catch (e) { /* 浏览器拒绝时仍保留页面内全屏 */ }
+            }
+            async function exitAppFullscreen() {
+                if (!document.fullscreenElement && !document.webkitFullscreenElement) return;
+                const exit = document.exitFullscreen || document.webkitExitFullscreen;
+                if (!exit) return;
+                try { await exit.call(document); } catch (e) {}
+            }
+            function leaveFullscreen() {
+                setFullscreenMode(false);
+                exitAppFullscreen();
+            }
+            function toggleFullscreen() {
+                if (isFullscreenMode()) {
+                    leaveFullscreen();
+                } else {
+                    setFullscreenMode(true);
+                    requestAppFullscreen();
+                }
+            }
 
             // ========= 获取博客配置 =========
             async function loadBlogConfig() {
@@ -648,6 +1098,8 @@
                         document.title = blogName;
                         // 更新欢迎页标题（欢迎页稍后渲染，但可以先保存）
                         window._blogName = blogName;
+                        // 博客根目录，用于在悬浮提示中展示文件的绝对路径
+                        if (data.rootDir) window._blogRoot = data.rootDir;
                         // 也可以立即更新，如果欢迎页已存在
                         const welcomeH2 = document.querySelector('.welcome-card h2');
                         if (welcomeH2) welcomeH2.textContent = blogName;
@@ -662,13 +1114,66 @@
             function openSidebar() {
                 sidebar.classList.add('open');
                 sidebarOverlay.classList.add('show');
+                updateSidebarToggle();
             }
             function closeSidebar() {
                 sidebar.classList.remove('open');
                 sidebarOverlay.classList.remove('show');
+                updateSidebarToggle();
             }
-            menuToggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
+            menuToggle.addEventListener('click', () => {
+                if (isMobileView()) {
+                    sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+                }
+            });
+            if (sidebarCollapse) {
+                sidebarCollapse.addEventListener('click', () => setSidebarCollapsed(true, true));
+            }
+            if (sidebarRestore) {
+                sidebarRestore.addEventListener('click', () => setSidebarCollapsed(false, true));
+            }
+            if (tocRestore) {
+                tocRestore.addEventListener('click', () => {
+                    const toc = document.getElementById('articleTOC');
+                    if (toc) setTocCollapsed(toc, false, true);
+                });
+            }
+            if (widthToggle && widthPopover) {
+                widthToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (widthPopover.hidden) openWidthPopover();
+                    else closeWidthPopover();
+                });
+            }
+            if (widthRange) {
+                widthRange.addEventListener('input', () => applyContentWidth(widthRange.value, true));
+                widthRange.addEventListener('change', () => applyContentWidth(widthRange.value, true));
+            }
+            widthPresets.forEach(btn => {
+                btn.addEventListener('click', () => applyContentWidth(btn.dataset.width, true));
+            });
+            document.addEventListener('click', (e) => {
+                if (!widthPopover || widthPopover.hidden) return;
+                if (widthPopover.contains(e.target) || widthToggle.contains(e.target)) return;
+                closeWidthPopover();
+            });
+            if (fullscreenToggle) {
+                fullscreenToggle.addEventListener('click', toggleFullscreen);
+            }
+            if (fullscreenExit) {
+                fullscreenExit.addEventListener('click', leaveFullscreen);
+            }
+            ['fullscreenchange', 'webkitfullscreenchange'].forEach(evt => {
+                document.addEventListener(evt, () => {
+                    const active = !!(document.fullscreenElement || document.webkitFullscreenElement);
+                    if (!active && isFullscreenMode()) setFullscreenMode(false);
+                });
+            });
             sidebarOverlay.addEventListener('click', closeSidebar);
+            window.addEventListener('resize', () => {
+                updateSidebarToggle();
+                updateTocRestore();
+            });
 
             function handleMobileArticleClick() {
                 if (window.innerWidth <= 768) closeSidebar();
@@ -751,6 +1256,7 @@
             function generateTOCFromHeadings(headings, tocContainer, doc) {
                 if (!headings || headings.length === 0) {
                     tocContainer.classList.remove('has-content');
+                    updateTocRestore();
                     return;
                 }
                 const existingIds = new Set();
@@ -764,7 +1270,11 @@
                     }
                 });
                 // 构建HTML
-                let html = '<div class="toc-title">文章目录</div><ul class="toc-list">';
+                let html = '<div class="toc-header">'
+                    + '<div class="toc-title">文章目录</div>'
+                    + '<button type="button" class="toc-toggle" title="收起文章目录" aria-label="收起文章目录" aria-expanded="true">'
+                    + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>'
+                    + '</button></div><ul class="toc-list">';
                 headings.forEach(heading => {
                     const level = parseInt(heading.tagName.charAt(1));
                     const id = heading.getAttribute('id');
@@ -773,6 +1283,14 @@
                 html += '</ul>';
                 tocContainer.innerHTML = html;
                 tocContainer.classList.add('has-content');
+                // 恢复上次的收起状态，并绑定展开/收起按钮
+                setTocCollapsed(tocContainer, isTocCollapsed(), false);
+                const tocToggle = tocContainer.querySelector('.toc-toggle');
+                if (tocToggle) {
+                    tocToggle.addEventListener('click', () => {
+                        setTocCollapsed(tocContainer, !tocContainer.classList.contains('collapsed'), true);
+                    });
+                }
                 // 绑定点击事件
                 tocContainer.querySelectorAll('a').forEach(link => {
                     link.addEventListener('click', function(e) {
@@ -853,9 +1371,233 @@
                 return null;
             }
 
+            // 判断是否为外链资源（http(s):// 或 // 开头）
+            function isExternalResourceUrl(url) {
+                return /^(?:https?:)?\/\//i.test((url || '').trim());
+            }
+
+            // 解码 JS 字符串字面量（含引号）为实际文本。
+            // 只做转义还原，不使用 eval/Function，避免执行文章内容。
+            function decodeJsStringLiteral(literal) {
+                const body = literal.slice(1, -1);
+                let out = '';
+                for (let i = 0; i < body.length; i++) {
+                    const ch = body[i];
+                    if (ch !== '\\') { out += ch; continue; }
+                    const next = body[++i];
+                    if (next === undefined) break;
+                    switch (next) {
+                        case 'n': out += '\n'; break;
+                        case 'r': out += '\r'; break;
+                        case 't': out += '\t'; break;
+                        case 'b': out += '\b'; break;
+                        case 'f': out += '\f'; break;
+                        case 'v': out += '\v'; break;
+                        case 'x': {
+                            const hex = body.substr(i + 1, 2);
+                            if (/^[0-9a-f]{2}$/i.test(hex)) { out += String.fromCharCode(parseInt(hex, 16)); i += 2; }
+                            else out += 'x';
+                            break;
+                        }
+                        case 'u': {
+                            if (body[i + 1] === '{') {
+                                const close = body.indexOf('}', i + 2);
+                                const hex = close > -1 ? body.slice(i + 2, close) : '';
+                                if (/^[0-9a-f]+$/i.test(hex)) { out += String.fromCodePoint(parseInt(hex, 16)); i = close; }
+                                else out += 'u';
+                            } else {
+                                const hex = body.substr(i + 1, 4);
+                                if (/^[0-9a-f]{4}$/i.test(hex)) { out += String.fromCharCode(parseInt(hex, 16)); i += 4; }
+                                else out += 'u';
+                            }
+                            break;
+                        }
+                        case '\n': break;                        // 行续接
+                        case '\r': if (body[i + 1] === '\n') i++; break;
+                        default: out += next;                    // \# \* \\ \" \` 等
+                    }
+                }
+                return out;
+            }
+
+            // 提取 HTML 文章中通过脚本注入的正文。
+            //
+            // 部分工具「导出 HTML」时并不生成静态正文，而是留下一个空的容器
+            // （如 <div id="content"></div>），把 Markdown 以 JS 字符串字面量的形式
+            // 塞进 marked.parse("...") 里，再靠脚本运行时填充。
+            // 我们的安全策略会移除所有 <script>，这类文章因此永远是白屏，
+            // 这里把内嵌 Markdown 取出来，交给正常的 Markdown 渲染流程。
+            //
+            // 只在<body>确实没有可见文本时回退，正常静态 HTML 文章不受影响。
+            function extractEmbeddedMarkdown(rawHtml) {
+                let doc;
+                try {
+                    doc = new DOMParser().parseFromString(rawHtml || '', 'text/html');
+                } catch (e) {
+                    return null;
+                }
+                if (!doc.body || doc.body.textContent.trim().length > 0) return null;
+
+                const code = Array.prototype.map
+                    .call(doc.querySelectorAll('script'), s => s.textContent)
+                    .join('\n');
+                if (!code) return null;
+
+                // 匹配 marked.parse("...") / marked.parse('...') / marked.parse(`...`)
+                const re = /marked\s*\.\s*parse\s*\(\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/;
+                const match = re.exec(code);
+                if (!match) return null;
+
+                const markdown = decodeJsStringLiteral(match[1]);
+                return markdown.trim() ? markdown : null;
+            }
+
+            // 规范化代码块语言标识，避免 highlight.js 对未注册语言逐块告警。
+            //
+            // 文章里常见 ```Plain Text、```js 这类标注：marked 取首个词生成
+            // language-Plain / language-js，而 highlight.js 只认 plaintext / javascript，
+            // 于是每个代码块都告警并回退到 highlightAuto（自动探测，慢且不准）。
+            // 这里把别名归一，未知语言统一回退到 plaintext（已注册、无告警、开销极低）。
+            const CODE_LANGUAGE_ALIASES = {
+                js: 'javascript', jsx: 'javascript', mjs: 'javascript',
+                ts: 'typescript', tsx: 'typescript',
+                py: 'python', sh: 'bash', shell: 'bash', zsh: 'bash',
+                yml: 'yaml', md: 'markdown', 'c++': 'cpp', 'c#': 'csharp',
+                html: 'xml', plain: 'plaintext', text: 'plaintext', txt: 'plaintext'
+            };
+
+            function normalizeCodeLanguages(container) {
+                if (typeof hljs === 'undefined' || !container) return;
+                container.querySelectorAll('pre code').forEach(block => {
+                    const match = /(?:^|\s)language-([\w+#.-]+)/i.exec(block.className || '');
+                    if (!match) return;                    // 没有语言标注，交给 hljs 自行处理
+                    const raw = match[1].toLowerCase();
+                    const lang = CODE_LANGUAGE_ALIASES[raw] || raw;
+                    block.className = hljs.getLanguage(lang) ? 'language-' + lang : 'language-plaintext';
+                });
+            }
+
+            // HTML 文章离线化处理：
+            // 1. 去掉会阻塞渲染的外链样式/脚本与 @import（离线环境下外链常导致长时间白屏）
+            // 2. 注入 <base>，让相对图片/样式仍按文章所在目录解析
+            // 3. 注入 CSP，阻止外链字体、脚本与嵌套页面，保留外链图片
+            function prepareHtmlForIframe(rawHtml, dirPath) {
+                try {
+                    const doc = new DOMParser().parseFromString(rawHtml || '', 'text/html');
+                    doc.querySelectorAll('base').forEach(el => el.remove());
+                    doc.querySelectorAll('link').forEach(el => {
+                        const href = el.getAttribute('href');
+                        if (!href || isExternalResourceUrl(href)) el.remove();
+                    });
+                    // sandbox 本就不允许执行脚本，直接移除可减少解析与请求
+                    doc.querySelectorAll('script').forEach(el => el.remove());
+                    doc.querySelectorAll('style').forEach(el => {
+                        el.textContent = el.textContent.replace(
+                            /@import\s+(?:url\(\s*)?["']?(?:https?:)?\/\/[^;]+;?/gi, ''
+                        );
+                    });
+
+                    const baseDir = dirPath
+                        ? dirPath.split('/').filter(Boolean).map(encodeURIComponent).join('/') + '/'
+                        : '';
+                    const base = doc.createElement('base');
+                    base.href = BLOG_FILES_PREFIX + baseDir;
+                    const csp = doc.createElement('meta');
+                    csp.setAttribute('http-equiv', 'Content-Security-Policy');
+                    csp.setAttribute('content',
+                        "default-src 'self' data: blob:; img-src * data: blob:; " +
+                        "style-src 'self' 'unsafe-inline' data: blob:; font-src 'self' data:; " +
+                        "script-src 'none'; media-src * data: blob:; object-src 'none'; " +
+                        "frame-src 'none'; connect-src 'none'; form-action 'none'; base-uri 'self'");
+                    doc.head.insertBefore(base, doc.head.firstChild);
+                    doc.head.insertBefore(csp, doc.head.firstChild);
+                    return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+                } catch (e) {
+                    console.warn('HTML 预处理失败，使用原始内容', e);
+                    return rawHtml;
+                }
+            }
+
+            // 渐进式设置 iframe 高度并生成目录，不等待外链图片等慢资源。
+            function setupHtmlArticleIframe(iframe) {
+                let tocDone = false;
+                let resizeWatched = false;
+                let lastHeight = 0;
+                let ticks = 0;
+
+                function currentDoc() {
+                    const doc = iframe.contentDocument;
+                    if (!doc) return null;
+                    try {
+                        // srcdoc 文档 URL 为 about:srcdoc，避免读到初始 about:blank
+                        if (doc.location && doc.location.href !== 'about:srcdoc') return null;
+                    } catch (e) {
+                        return null;
+                    }
+                    return doc;
+                }
+
+                function apply() {
+                    if (!iframe.isConnected) return true;
+                    const doc = currentDoc();
+                    if (!doc || !doc.body) return false;
+
+                    // 只按 body 的内容高度测量。documentElement.scrollHeight 至少等于
+                    // iframe 自身的视口高度，一旦 iframe 被设高就再也降不回来：
+                    // 视口变窄 → 内容变高 → 设高 → 变宽后高度仍然锁在最大值，
+                    // 表现为文章下方留白几万像素、滚动条异常长。
+                    const body = doc.body;
+                    const rect = body.getBoundingClientRect();
+                    const style = doc.defaultView ? doc.defaultView.getComputedStyle(body) : null;
+                    const margin = style
+                        ? (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0)
+                        : 0;
+                    const height = Math.ceil(Math.max(body.scrollHeight, rect.height) + margin);
+                    // 1px 阈值吸收亚像素抖动，避免每帧都写样式触发重排。
+                    if (height > 0 && Math.abs(height - lastHeight) > 1) {
+                        lastHeight = height;
+                        iframe.style.height = height + 'px';
+                    }
+                    if (!tocDone) {
+                        const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                        if (headings.length > 0 || doc.readyState !== 'loading') {
+                            const tocContainer = document.getElementById('articleTOC');
+                            if (tocContainer) generateTOCFromHeadings(headings, tocContainer, doc);
+                            tocDone = true;
+                        }
+                    }
+                    watchResize();
+                    return doc.readyState === 'complete';
+                }
+
+                function watchResize() {
+                    if (resizeWatched) return;
+                    const doc = currentDoc();
+                    if (!window.ResizeObserver || !doc || !doc.body) return;
+                    resizeWatched = true;
+                    const ro = new ResizeObserver(() => apply());
+                    ro.observe(doc.body);
+                    if (doc.documentElement) ro.observe(doc.documentElement);
+                }
+
+                iframe.addEventListener('load', () => {
+                    if (!iframe.isConnected) return;
+                    apply();
+                    watchResize();
+                });
+
+                (function poll() {
+                    if (!iframe.isConnected) return;
+                    const complete = apply();
+                    ticks++;
+                    if (!complete && ticks < 240) requestAnimationFrame(poll);
+                })();
+            }
+
             async function loadArticle(filePath, dirPath) {
                 try {
                     contentArea.innerHTML = '<div style="text-align:center;padding:80px;color:var(--text-muted);">⏳ 正在渲染…</div>';
+                    updateTocRestore();
                     const res = await fetch(API_FILE + encodeURIComponent(filePath));
                     if (!res.ok) throw new Error(`文件加载失败 (${res.status})`);
                     const data = await res.json();
@@ -866,31 +1608,37 @@
                     const isHtml = data.fileType === 'html';
                     const resolvedDirPath = currentDirPath;
 
+                    // HTML 文章的正文可能全部内嵌在脚本里（导出型 HTML），
+                    // 此时按 Markdown 渲染才能显示内容。
+                    let embeddedMarkdown = null;
                     if (isHtml) {
-                        const fileUrl = BLOG_FILES_PREFIX + filePath;
+                        embeddedMarkdown = extractEmbeddedMarkdown(data.content || '');
+                    }
+                    const renderAsMarkdown = !isHtml || embeddedMarkdown !== null;
+
+                    if (!renderAsMarkdown) {
+                        // 复用已拉取的正文，避免再次请求 /blog-files/...
+                        const preparedHtml = prepareHtmlForIframe(data.content || '', resolvedDirPath);
                         contentArea.innerHTML = `
                             <div class="article-layout">
                                 <div class="article-main">
                                     <div class="article-card" style="padding:0; overflow:hidden; border-radius:var(--radius);">
-                                        <iframe src="${fileUrl}" id="htmlIframe"
+                                        <iframe id="htmlIframe"
                                                 referrerpolicy="no-referrer"
-                                                style="width:100%; min-height:600px; border:none; border-radius:var(--radius);"
+                                                style="width:100%; min-height:600px; display:block; border:none; border-radius:var(--radius);"
                                                 sandbox="allow-same-origin"></iframe>
                                     </div>
                                 </div>
                                 <aside class="article-toc" id="articleTOC"></aside>
                             </div>`;
                         const iframe = document.getElementById('htmlIframe');
-                        iframe.addEventListener('load', function() {
-                            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                            const headings = iframeDoc.querySelectorAll('h1, h2, h3, h4, h5, h6');
-                            const tocContainer = document.getElementById('articleTOC');
-                            if (tocContainer) generateTOCFromHeadings(headings, tocContainer, iframeDoc);
-                            // 调整高度
-                            this.style.height = iframeDoc.body.scrollHeight + 'px';
-                        });
+                        if (iframe) {
+                            iframe.srcdoc = preparedHtml;
+                            setupHtmlArticleIframe(iframe);
+                        }
                     } else {
-                        let mdContent = data.content;
+                        // 导出型 HTML 使用脚本内嵌的 Markdown，普通 .md 使用文件内容。
+                        let mdContent = embeddedMarkdown !== null ? embeddedMarkdown : data.content;
                         if (resolvedDirPath) {
                             mdContent = mdContent.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, p) => {
                                 if (/^(https?:|data:|#|\/)/i.test(p.trim())) return match;
@@ -923,6 +1671,7 @@
                             </div>`;
 
                         if (typeof hljs !== 'undefined') {
+                            normalizeCodeLanguages(contentArea);
                             contentArea.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
                         }
                         const markdownBody = contentArea.querySelector('.markdown-body');
@@ -945,6 +1694,7 @@
                 } catch (err) {
                     contentArea.innerHTML = `<div class="welcome-card"><h2>⚠️ 加载失败</h2><p>${escapeHtml(err.message)}</p></div>`;
                     updateBreadcrumb([]);
+                    updateTocRestore();
                 }
             }
 
@@ -963,6 +1713,7 @@
                 updateBreadcrumb([]);
                 updateUrlHash('');
                 highlightActiveNode(null);
+                updateTocRestore();
             }
 
             function highlightActiveNode(filePath) {
@@ -975,6 +1726,156 @@
                         }
                     });
                 }
+            }
+
+            // ========= 文件名悬浮提示 =========
+            //
+            // 左侧栏条目会被 overflow 裁剪，且 .tree-container 自身也是滚动容器，
+            // 把 tooltip 放在行内会被裁掉。因此统一挂到 body 上做 fixed 定位，
+            // 通过事件委托读取行上的 data-full-name / data-full-path。
+            let tooltipTimer = null;
+
+            function directoryOf(path) {
+                const idx = (path || '').lastIndexOf('/');
+                return idx === -1 ? '' : path.slice(0, idx);
+            }
+
+            function showFileTooltip(row) {
+                if (!fileTooltip) return;
+                const name = row.dataset.fullName || '';
+                const fullPath = row.dataset.fullPath || '';
+                if (!name) return;
+
+                fileTooltip.innerHTML = '';
+                const nameEl = document.createElement('div');
+                nameEl.className = 'tt-name';
+                nameEl.textContent = name;
+                fileTooltip.appendChild(nameEl);
+
+                // 绝对路径：能拿到博客根目录时拼出完整磁盘路径，否则退回到相对目录
+                const dir = directoryOf(fullPath);
+                const root = window._blogRoot || '';
+                const absPath = root
+                    ? root.replace(/[\\/]+$/, '') + '\\' + (dir ? dir.replace(/\//g, '\\') : '')
+                    : dir;
+                if (absPath) {
+                    const pathEl = document.createElement('div');
+                    pathEl.className = 'tt-path';
+                    pathEl.textContent = absPath;
+                    fileTooltip.appendChild(pathEl);
+                }
+
+                fileTooltip.classList.add('show');
+                fileTooltip.setAttribute('aria-hidden', 'false');
+                positionFileTooltip(row);
+            }
+
+            // 定位到行的右侧；空间不足时改为上方对齐，避免超出视口。
+            function positionFileTooltip(row) {
+                if (!fileTooltip || !fileTooltip.classList.contains('show')) return;
+                const rect = row.getBoundingClientRect();
+                const tipRect = fileTooltip.getBoundingClientRect();
+                const margin = 8;
+
+                let left = rect.right + margin;
+                if (left + tipRect.width > window.innerWidth - margin) {
+                    left = Math.max(margin, window.innerWidth - margin - tipRect.width);
+                }
+                let top = rect.top + (rect.height - tipRect.height) / 2;
+                if (top < margin) {
+                    top = margin;
+                } else if (top + tipRect.height > window.innerHeight - margin) {
+                    top = Math.max(margin, window.innerHeight - margin - tipRect.height);
+                }
+                fileTooltip.style.left = Math.round(left) + 'px';
+                fileTooltip.style.top = Math.round(top) + 'px';
+            }
+
+            function hideFileTooltip() {
+                if (tooltipTimer) { clearTimeout(tooltipTimer); tooltipTimer = null; }
+                if (!fileTooltip) return;
+                fileTooltip.classList.remove('show');
+                fileTooltip.setAttribute('aria-hidden', 'true');
+            }
+
+            function initFileTooltip() {
+                if (!fileTooltip) return;
+
+                treeContainer.addEventListener('mouseover', (e) => {
+                    const row = e.target.closest('.node-row');
+                    if (!row || !treeContainer.contains(row)) return;
+                    if (e.relatedTarget && row.contains(e.relatedTarget)) return;
+                    if (tooltipTimer) clearTimeout(tooltipTimer);
+                    // 轻微延迟，避免快速划过时反复闪烁
+                    tooltipTimer = setTimeout(() => showFileTooltip(row), 180);
+                });
+
+                treeContainer.addEventListener('mouseout', (e) => {
+                    const row = e.target.closest('.node-row');
+                    if (!row) return;
+                    if (e.relatedTarget && row.contains(e.relatedTarget)) return;
+                    hideFileTooltip();
+                });
+
+                // 键盘用户：聚焦时同样给出完整名称
+                treeContainer.addEventListener('focusin', (e) => {
+                    const row = e.target.closest('.node-row');
+                    if (row) showFileTooltip(row);
+                });
+                treeContainer.addEventListener('focusout', hideFileTooltip);
+
+                // 滚动或窗口尺寸变化后位置会失效，直接收起
+                treeContainer.addEventListener('scroll', hideFileTooltip, { passive: true });
+                window.addEventListener('resize', hideFileTooltip);
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') hideFileTooltip();
+                });
+            }
+
+            // ========= 在文件夹中定位文件 =========
+            async function revealFile(filePath) {
+                if (!filePath) return;
+                try {
+                    const res = await fetch(API_REVEAL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: filePath })
+                    });
+                    if (!res.ok) {
+                        // 后端会带上 detail（如"服务运行于 Session 0"），透传以便定位原因
+                        let message = `定位失败 (${res.status})`;
+                        try {
+                            const data = await res.json();
+                            if (data && data.error) {
+                                message = data.detail ? `${data.error}：${data.detail}` : data.error;
+                            }
+                        } catch (e) { /* 响应不是 JSON，保留默认文案 */ }
+                        throw new Error(message);
+                    }
+                } catch (err) {
+                    // fetch 本身失败（服务未启动、跨域等）时 err.message 为 "Failed to fetch"
+                    const msg = err && err.message && err.message !== 'Failed to fetch'
+                        ? err.message
+                        : '无法连接到博客服务，请确认程序正在运行';
+                    toast(msg, 5200);
+                }
+            }
+
+            // 轻量提示条，避免用 alert 阻断阅读
+            let toastTimer = null;
+            function toast(message, duration) {
+                let el = document.getElementById('appToast');
+                if (!el) {
+                    el = document.createElement('div');
+                    el.id = 'appToast';
+                    el.className = 'app-toast';
+                    el.setAttribute('role', 'status');
+                    document.body.appendChild(el);
+                }
+                el.textContent = message;
+                el.classList.add('show');
+                if (toastTimer) clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => el.classList.remove('show'), duration || 2600);
             }
 
             function buildTreeDOM(nodes, container, level = 0) {
@@ -996,6 +1897,8 @@
 
                     if (node.type === 'directory') {
                         row.innerHTML = `<span class="arrow">▼</span><span class="node-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span><span class="node-name">${escapeHtml(node.name)}</span>`;
+                        row.dataset.fullName = node.name;
+                        row.dataset.fullPath = node.path || '';
                         row.addEventListener('click', (e) => {
                             e.stopPropagation();
                             const isCollapsed = nodeDiv.classList.contains('collapsed');
@@ -1009,7 +1912,14 @@
                         const fileIcon = isHtmlFile
                             ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
                             : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
-                        row.innerHTML = `<span class="arrow" style="visibility:hidden;">▼</span><span class="node-icon">${fileIcon}</span><span class="node-name">${escapeHtml(displayName)}</span>`;
+                        row.innerHTML = `<span class="arrow" style="visibility:hidden;">▼</span><span class="node-icon">${fileIcon}</span><span class="node-name">${escapeHtml(displayName)}</span><button type="button" class="node-reveal" title="在文件夹中定位" aria-label="在文件夹中定位 ${escapeHtml(node.name)}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="2.5"/></svg></button>`;
+                        // 悬浮提示显示被省略号截断的完整文件名与目录
+                        row.dataset.fullName = node.name;
+                        row.dataset.fullPath = node.path || '';
+                        row.querySelector('.node-reveal').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            revealFile(node.path);
+                        });
                         row.addEventListener('click', (e) => {
                             e.stopPropagation();
                             loadArticle(node.path, node.dirPath || '');
@@ -1181,16 +2091,30 @@
             });
             document.addEventListener('keydown', (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); searchInput.focus(); }
-                if (e.key === 'Escape') { searchInput.value = ''; filterTree(''); searchInput.blur(); }
+                if (e.key === 'Escape') {
+                    if (widthPopover && !widthPopover.hidden) closeWidthPopover();
+                    if (isFullscreenMode()) leaveFullscreen();
+                    searchInput.value = ''; filterTree(''); searchInput.blur();
+                }
             });
 
             async function initApp() {
+                // 与首屏脚本保持一致，恢复左侧目录栏的收起状态
+                setSidebarCollapsed(readStored(SIDEBAR_STATE_KEY) === '1', false);
+                applyContentWidth(readStored(WIDTH_STATE_KEY), false);
+                updateFullscreenUI();
+                initFileTooltip();
                 await loadBlogConfig();
                 loadTree();
                 updateBreadcrumb([]);
             }
 
-            initApp();
+            // defer 脚本在 DOMContentLoaded 前按顺序执行，等渲染库就绪后再初始化
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initApp);
+            } else {
+                initApp();
+            }
 
         })();
     </script>
